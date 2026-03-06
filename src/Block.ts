@@ -7,26 +7,24 @@ export class Block {
   hp: number;
   maxHp: number;
   row: number;
-  baseColor: number;
+  colorIndex: number; // index into BLOCK_COLORS
 
-  constructor(x: number, y: number, color: number, hp: number, row: number) {
+  constructor(x: number, y: number, color: number, colorIndex: number, hp: number, row: number) {
     this.hp = hp;
     this.maxHp = hp;
     this.row = row;
-    this.baseColor = color;
+    this.colorIndex = colorIndex;
 
-    // Create block with beveled look using slightly smaller inner geometry
     const geo = new THREE.BoxGeometry(BLOCK_WIDTH, BLOCK_HEIGHT, BLOCK_DEPTH, 2, 2, 1);
     const mat = new THREE.MeshStandardMaterial({
       color,
       emissive: color,
-      emissiveIntensity: 0.2,
+      emissiveIntensity: 0.3,
       metalness: 0.4,
       roughness: 0.4,
     });
     this.mesh = new THREE.Mesh(geo, mat);
     this.mesh.position.set(x, y, 0);
-    this.updateAppearance();
   }
 
   hit(damage: number): boolean {
@@ -35,22 +33,18 @@ export class Block {
       this.destroy();
       return true;
     }
-    this.updateAppearance();
-    // Hit flash
+    // Hit flash - bright white flash
     const mat = this.mesh.material as THREE.MeshStandardMaterial;
-    mat.emissiveIntensity = 1.0;
+    mat.emissiveIntensity = 2.0;
+    const originalScale = this.mesh.scale.x;
+    this.mesh.scale.setScalar(1.3);
     setTimeout(() => {
-      if (this.alive) mat.emissiveIntensity = 0.1 + (this.hp / this.maxHp) * 0.3;
-    }, 80);
+      if (this.alive) {
+        mat.emissiveIntensity = 0.3;
+        this.mesh.scale.setScalar(originalScale);
+      }
+    }, 100);
     return false;
-  }
-
-  private updateAppearance() {
-    const mat = this.mesh.material as THREE.MeshStandardMaterial;
-    const ratio = this.hp / this.maxHp;
-    const base = new THREE.Color(this.baseColor);
-    mat.color.copy(base).multiplyScalar(0.5 + ratio * 0.5);
-    mat.emissiveIntensity = 0.1 + ratio * 0.3;
   }
 
   destroy() {

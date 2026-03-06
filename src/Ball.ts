@@ -2,10 +2,10 @@ import * as THREE from "three";
 import {
   BALL_RADIUS,
   BALL_SPEED,
-  BALL_COLOR,
   GAME_WIDTH,
   GAME_HEIGHT,
   PADDLE_Y,
+  BLOCK_COLORS,
 } from "./constants";
 
 export class Ball {
@@ -16,22 +16,43 @@ export class Ball {
   speed = BALL_SPEED;
   penetrationRemaining = 0;
   active = false;
+  colorIndex = 0; // index into BLOCK_COLORS
   private glow: THREE.PointLight;
   private scene: THREE.Scene;
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
     const geo = new THREE.SphereGeometry(BALL_RADIUS, 16, 16);
+    const color = BLOCK_COLORS[0];
     const mat = new THREE.MeshStandardMaterial({
-      color: BALL_COLOR,
-      emissive: BALL_COLOR,
-      emissiveIntensity: 0.8,
+      color,
+      emissive: color,
+      emissiveIntensity: 1.0,
     });
     this.mesh = new THREE.Mesh(geo, mat);
     this.mesh.position.set(0, PADDLE_Y + 0.5, 0);
 
-    this.glow = new THREE.PointLight(0xffffff, 1, 6);
+    this.glow = new THREE.PointLight(color, 2, 8);
     this.mesh.add(this.glow);
+  }
+
+  /** Change ball color to a random BLOCK_COLOR */
+  cycleColor() {
+    const oldIndex = this.colorIndex;
+    // Ensure we get a different color
+    do {
+      this.colorIndex = Math.floor(Math.random() * BLOCK_COLORS.length);
+    } while (this.colorIndex === oldIndex && BLOCK_COLORS.length > 1);
+    this.applyColor();
+  }
+
+  private applyColor() {
+    const color = BLOCK_COLORS[this.colorIndex];
+    const mat = this.mesh.material as THREE.MeshStandardMaterial;
+    mat.color.setHex(color);
+    mat.emissive.setHex(color);
+    mat.emissiveIntensity = 1.0;
+    this.glow.color.setHex(color);
   }
 
   launch(penetrationLevel: number) {
@@ -52,15 +73,14 @@ export class Ball {
   }
 
   updateGlow(penetrationLevel: number) {
-    const intensity = 0.8 + penetrationLevel * 0.3;
+    const intensity = 2 + penetrationLevel * 0.5;
     this.glow.intensity = intensity;
-    this.glow.distance = 6 + penetrationLevel * 0.5;
-    const hue = 0.12 + penetrationLevel * 0.015;
-    const color = new THREE.Color().setHSL(hue, 1, 0.6);
-    (this.mesh.material as THREE.MeshStandardMaterial).emissive = color;
-    (this.mesh.material as THREE.MeshStandardMaterial).emissiveIntensity =
-      0.8 + penetrationLevel * 0.15;
-    this.glow.color = color;
+    this.glow.distance = 8 + penetrationLevel * 1.0;
+    const mat = this.mesh.material as THREE.MeshStandardMaterial;
+    mat.emissiveIntensity = 1.0 + penetrationLevel * 0.2;
+    // Scale ball slightly with penetration
+    const scale = 1 + penetrationLevel * 0.05;
+    this.mesh.scale.setScalar(scale);
   }
 
   private clearTrail() {
@@ -72,12 +92,13 @@ export class Ball {
 
   updateTrail() {
     if (!this.active) return;
+    const color = BLOCK_COLORS[this.colorIndex];
     // Add trail dot
-    const geo = new THREE.SphereGeometry(BALL_RADIUS * 0.5, 6, 6);
+    const geo = new THREE.SphereGeometry(BALL_RADIUS * 0.6, 6, 6);
     const mat = new THREE.MeshBasicMaterial({
-      color: (this.mesh.material as THREE.MeshStandardMaterial).emissive,
+      color,
       transparent: true,
-      opacity: 0.4,
+      opacity: 0.6,
     });
     const dot = new THREE.Mesh(geo, mat);
     dot.position.copy(this.mesh.position);
@@ -87,7 +108,7 @@ export class Ball {
     // Fade and remove old trail
     for (let i = this.trail.length - 1; i >= 0; i--) {
       const m = this.trail[i].material as THREE.MeshBasicMaterial;
-      m.opacity -= 0.06;
+      m.opacity -= 0.04;
       if (m.opacity <= 0) {
         this.scene.remove(this.trail[i]);
         this.trail.splice(i, 1);
@@ -95,10 +116,10 @@ export class Ball {
     }
   }
 
-  update() {
+  update(timeScale = 1) {
     if (!this.active) return false;
-    this.mesh.position.x += this.vx;
-    this.mesh.position.y += this.vy;
+    this.mesh.position.x += this.vx * timeScale;
+    this.mesh.position.y += this.vy * timeScale;
 
     const hw = GAME_WIDTH / 2 - BALL_RADIUS;
     if (this.mesh.position.x <= -hw) {

@@ -2,53 +2,214 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-    <title>BOKUZUSHI - Star Breaker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>星砕き - BOKUZUSHI</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=Orbitron:wght@700;900&display=swap" rel="stylesheet" />
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { height: 100%; width: 100%; }
       body {
         overflow: hidden;
         background: #050510;
-        font-family: "Orbitron", "Segoe UI", sans-serif;
+        font-family: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", sans-serif;
         color: #fff;
         -webkit-user-select: none;
         user-select: none;
+        touch-action: none;
+        -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
       }
-      canvas#game { display: block; width: 100vw; height: 100vh; }
+      canvas#game {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+        height: 100dvh;
+      }
 
       /* ─── HUD ─── */
       #hud {
         position: fixed; top: 0; left: 0; width: 100%;
-        padding: 10px 24px;
+        padding: 8px 12px;
+        padding-top: max(8px, env(safe-area-inset-top));
         display: flex; justify-content: space-between; align-items: center;
         pointer-events: none; z-index: 10;
-        background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent);
+        background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
+        gap: 4px;
       }
-      .hud-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-      .hud-label { font-size: 10px; letter-spacing: 3px; opacity: 0.5; text-transform: uppercase; }
-      .hud-value { font-weight: 700; font-size: 22px; text-shadow: 0 0 12px currentColor; }
-      .penetration-stars { color: #ffd700; letter-spacing: 1px; font-size: 16px; }
-      .lives { color: #ff4466; }
+      .hud-item { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; }
+      .hud-label { font-size: 9px; letter-spacing: 2px; opacity: 0.6; }
+      .hud-value { font-weight: 900; font-size: 18px; text-shadow: 0 0 12px currentColor; white-space: nowrap; transition: transform 0.15s; }
+      .penetration-stars { color: #ffd700; letter-spacing: 1px; font-size: 13px; }
+      .world-info { color: #ffcc88; font-size: 12px; letter-spacing: 1px; font-weight: 700; }
 
-      /* ─── Level Up Flash ─── */
-      #level-up {
-        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-        font-size: 36px; font-weight: 900; letter-spacing: 6px;
-        color: #ffd700; text-shadow: 0 0 30px #ffd700, 0 0 60px #ff8800;
+      /* Ball color indicator */
+      .ball-color-indicator {
+        width: 20px; height: 20px;
+        border-radius: 50%;
+        border: 2px solid rgba(255,255,255,0.5);
+        transition: background 0.2s, box-shadow 0.2s;
+      }
+
+      @media (min-width: 600px) {
+        #hud { padding: 10px 24px; }
+        .hud-label { font-size: 10px; letter-spacing: 3px; }
+        .hud-value { font-size: 24px; }
+        .penetration-stars { font-size: 16px; }
+        .world-info { font-size: 15px; letter-spacing: 2px; }
+        .ball-color-indicator { width: 26px; height: 26px; }
+      }
+
+      /* ─── Screen Flash ─── */
+      #flash {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        pointer-events: none; z-index: 14;
+        opacity: 0; transition: none;
+      }
+
+      /* ─── Rainbow border (pachinko style) ─── */
+      #rainbow-border {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        pointer-events: none; z-index: 13;
+        opacity: 0;
+        border: 12px solid transparent;
+        transition: opacity 0.1s;
+      }
+      #rainbow-border.active {
+        opacity: 1;
+        animation: rainbowBorder 0.15s linear infinite, borderPulse 0.3s ease-in-out infinite;
+      }
+      @keyframes rainbowBorder {
+        0% { border-color: #ff0000; }
+        14% { border-color: #ff8800; }
+        28% { border-color: #ffff00; }
+        42% { border-color: #00ff00; }
+        57% { border-color: #0088ff; }
+        71% { border-color: #8800ff; }
+        85% { border-color: #ff00ff; }
+        100% { border-color: #ff0000; }
+      }
+      @keyframes borderPulse {
+        0%, 100% { border-width: 8px; }
+        50% { border-width: 16px; }
+      }
+
+      /* ─── Shockwave ─── */
+      #shockwave {
+        position: fixed;
         pointer-events: none; z-index: 15;
+        width: 10px; height: 10px;
+        border-radius: 50%;
+        transform: translate(-50%, -50%) scale(0);
+        opacity: 0;
+      }
+      #shockwave.active {
+        animation: shockwaveAnim 0.6s ease-out forwards;
+      }
+      @keyframes shockwaveAnim {
+        0% {
+          transform: translate(-50%, -50%) scale(0);
+          opacity: 1;
+          box-shadow: 0 0 0 4px rgba(255,255,255,0.8), 0 0 30px 8px rgba(255,200,0,0.6);
+        }
+        50% {
+          transform: translate(-50%, -50%) scale(40);
+          opacity: 0.6;
+          box-shadow: 0 0 0 3px rgba(255,255,255,0.4), 0 0 60px 16px rgba(255,100,0,0.3);
+        }
+        100% {
+          transform: translate(-50%, -50%) scale(80);
+          opacity: 0;
+          box-shadow: 0 0 0 1px rgba(255,255,255,0), 0 0 0 0 transparent;
+        }
+      }
+
+      /* ─── Level Up ─── */
+      #level-up {
+        position: fixed; top: 45%; left: 50%; transform: translate(-50%, -50%);
+        font-size: clamp(32px, 7vw, 56px); font-weight: 900; letter-spacing: 6px;
+        color: #ffd700;
+        text-shadow: 0 0 40px #ffd700, 0 0 80px #ff8800, 0 0 120px #ff4400, 0 3px 0 #aa6600;
+        pointer-events: none; z-index: 16;
         opacity: 0; transition: none;
       }
       #level-up.show {
         opacity: 1;
-        animation: levelUpAnim 1.2s ease-out forwards;
+        animation: levelUpAnim 1.8s ease-out forwards;
       }
       @keyframes levelUpAnim {
-        0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
-        20% { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
-        100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+        0% { transform: translate(-50%, -50%) scale(0.1) rotate(-20deg); opacity: 0; }
+        10% { transform: translate(-50%, -50%) scale(2.5) rotate(5deg); opacity: 1; }
+        20% { transform: translate(-50%, -50%) scale(0.8) rotate(-3deg); opacity: 1; }
+        30% { transform: translate(-50%, -50%) scale(1.3) rotate(1deg); opacity: 1; }
+        40% { transform: translate(-50%, -50%) scale(1.0) rotate(0deg); opacity: 1; }
+        100% { transform: translate(-50%, -50%) scale(1.0) rotate(0deg); opacity: 0; }
+      }
+
+      /* ─── Combo Counter ─── */
+      #combo {
+        position: fixed; top: 30%; right: 5%; transform: translateY(-50%);
+        font-size: clamp(24px, 6vw, 48px); font-weight: 900;
+        font-family: "Orbitron", sans-serif;
+        color: #ff4444;
+        text-shadow: 0 0 30px #ff0000, 0 0 60px #ff4400, 0 0 100px #ff0000;
+        pointer-events: none; z-index: 16;
+        opacity: 0; transition: none;
+      }
+      #combo.show {
+        opacity: 1;
+        animation: comboAnim 1.2s ease-out forwards;
+      }
+      @keyframes comboAnim {
+        0% { transform: translateY(-50%) scale(0.3) rotate(-10deg); opacity: 0; }
+        15% { transform: translateY(-50%) scale(2.0) rotate(5deg); opacity: 1; }
+        30% { transform: translateY(-50%) scale(1.0) rotate(0deg); opacity: 1; }
+        100% { transform: translateY(-50%) scale(1.0) rotate(0deg); opacity: 0; }
+      }
+
+      /* ─── Big Text (pachinko-style callouts) ─── */
+      #big-text {
+        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        font-weight: 900; letter-spacing: 8px;
+        pointer-events: none; z-index: 17;
+        opacity: 0; transition: none;
+        white-space: nowrap;
+        text-align: center;
+      }
+      #big-text.show { opacity: 1; }
+      #big-text.atsu {
+        font-size: clamp(44px, 10vw, 80px);
+        color: #ff8800;
+        text-shadow: 0 0 40px #ff4400, 0 0 80px #ff0000, 0 0 120px #ff8800, 0 4px 0 #aa4400;
+        animation: bigTextSlam 1.5s ease-out forwards;
+      }
+      #big-text.gekiatsu {
+        font-size: clamp(52px, 12vw, 96px);
+        color: #ff0044;
+        text-shadow: 0 0 50px #ff0000, 0 0 100px #ff4400, 0 0 150px #ffaa00, 0 0 200px #ff0000, 0 5px 0 #880022;
+        animation: bigTextSlam 2s ease-out forwards;
+      }
+      #big-text.kakuhen {
+        font-size: clamp(52px, 12vw, 96px);
+        background: linear-gradient(90deg, #ff0000, #ff8800, #ffff00, #00ff00, #0088ff, #ff00ff, #ff0000);
+        background-size: 400% 100%;
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        filter: drop-shadow(0 0 30px rgba(255,255,255,0.9)) drop-shadow(0 0 60px rgba(255,100,0,0.5));
+        animation: bigTextSlam 2.5s ease-out forwards, rainbowText 0.3s linear infinite;
+      }
+      @keyframes bigTextSlam {
+        0% { transform: translate(-50%, -50%) scale(0.05) rotate(-30deg); opacity: 0; }
+        8% { transform: translate(-50%, -50%) scale(3.0) rotate(8deg); opacity: 1; }
+        15% { transform: translate(-50%, -50%) scale(0.7) rotate(-5deg); opacity: 1; }
+        22% { transform: translate(-50%, -50%) scale(1.5) rotate(3deg); opacity: 1; }
+        30% { transform: translate(-50%, -50%) scale(1.0) rotate(0deg); opacity: 1; }
+        80% { transform: translate(-50%, -50%) scale(1.0) rotate(0deg); opacity: 1; }
+        100% { transform: translate(-50%, -50%) scale(1.5) rotate(0deg); opacity: 0; }
+      }
+      @keyframes rainbowText {
+        0% { background-position: 0% 50%; }
+        100% { background-position: 400% 50%; }
       }
 
       /* ─── Overlay ─── */
@@ -58,43 +219,114 @@
         background: radial-gradient(ellipse at center, rgba(5,5,16,0.85), rgba(5,5,16,0.95));
         z-index: 20; cursor: pointer;
         backdrop-filter: blur(4px);
+        padding: 16px;
+        padding-top: max(16px, env(safe-area-inset-top));
+        padding-bottom: max(16px, env(safe-area-inset-bottom));
       }
       #overlay.hidden { display: none; }
       #overlay h1 {
-        font-size: clamp(36px, 8vw, 72px); font-weight: 900;
-        letter-spacing: 8px; margin-bottom: 16px;
-        background: linear-gradient(135deg, #ffd700 0%, #ff6b6b 50%, #4488ff 100%);
+        font-size: clamp(32px, 8vw, 72px); font-weight: 900;
+        letter-spacing: clamp(4px, 1.5vw, 8px); margin-bottom: 8px;
+        background: linear-gradient(135deg, #ffd700 0%, #ff6b6b 50%, #ff88cc 100%);
         -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         filter: drop-shadow(0 0 20px rgba(255,215,0,0.4));
         animation: titlePulse 3s ease-in-out infinite;
+        text-align: center;
+        font-family: "Zen Kaku Gothic New", sans-serif;
       }
       @keyframes titlePulse {
         0%, 100% { filter: drop-shadow(0 0 20px rgba(255,215,0,0.4)); }
         50% { filter: drop-shadow(0 0 40px rgba(255,215,0,0.7)); }
       }
       #overlay p {
-        font-size: 18px; opacity: 0.8; letter-spacing: 3px;
+        font-size: clamp(14px, 3.5vw, 20px); opacity: 0.8; letter-spacing: 3px;
         animation: blink 2s ease-in-out infinite;
+        text-align: center;
       }
       @keyframes blink {
         0%, 100% { opacity: 0.8; } 50% { opacity: 0.3; }
       }
-      #overlay .sub { font-size: 12px; opacity: 0.35; margin-top: 12px; letter-spacing: 2px; }
+      #overlay .sub {
+        font-size: clamp(11px, 2.5vw, 14px); opacity: 0.4; margin-top: 6px;
+        letter-spacing: 2px;
+      }
       #overlay .controls {
-        margin-top: 32px; font-size: 11px; opacity: 0.3;
+        margin-top: 20px; font-size: 11px; opacity: 0.3;
         line-height: 1.8; text-align: center; letter-spacing: 1px;
+      }
+      #overlay .color-hint {
+        margin-top: 12px; font-size: 12px; opacity: 0.5;
+        letter-spacing: 1px; line-height: 2;
+      }
+      #overlay .color-hint span {
+        display: inline-block;
+        width: 14px; height: 14px;
+        border-radius: 50%;
+        vertical-align: middle;
+        margin: 0 3px;
+        border: 1px solid rgba(255,255,255,0.3);
+      }
+
+      /* ─── World Select ─── */
+      #world-select {
+        display: none;
+        margin-top: 24px;
+        gap: 10px;
+        justify-content: center;
+        align-items: stretch;
+        flex-wrap: wrap;
+        max-width: 440px;
+        width: 100%;
+      }
+      #world-select.show { display: flex; }
+      .world-btn {
+        width: 76px; min-height: 80px;
+        border: 2px solid rgba(255,255,255,0.2);
+        border-radius: 14px;
+        background: rgba(255,255,255,0.05);
+        color: #fff;
+        font-family: "Zen Kaku Gothic New", sans-serif;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        gap: 3px;
+        padding: 8px 4px;
+      }
+      .world-btn-emoji { font-size: 24px; line-height: 1; }
+      .world-btn-name { font-size: 13px; font-weight: 900; letter-spacing: 2px; }
+      .world-btn-sub { font-size: 7px; opacity: 0.5; letter-spacing: 1px; }
+      .world-btn:hover {
+        transform: scale(1.08);
+        box-shadow: 0 0 24px rgba(255,255,255,0.2);
+      }
+      .world-btn:active { transform: scale(0.95); }
+      #world-select-label {
+        width: 100%;
+        text-align: center;
+        font-size: 12px; font-weight: 700;
+        letter-spacing: 4px;
+        opacity: 0.5;
+        margin-bottom: 2px;
+      }
+      @media (max-width: 420px) {
+        .world-btn { width: 64px; min-height: 68px; }
+        .world-btn-emoji { font-size: 20px; }
+        .world-btn-name { font-size: 11px; }
+        #world-select { gap: 8px; }
       }
 
       /* ─── Score Popup ─── */
       .score-popup {
         position: fixed; pointer-events: none; z-index: 12;
-        font-size: 16px; font-weight: 700;
-        color: #ffd700; text-shadow: 0 0 8px #ffd700;
-        animation: popUp 0.8s ease-out forwards;
+        font-size: clamp(18px, 4vw, 28px); font-weight: 900;
+        color: #ffd700; text-shadow: 0 0 12px #ffd700, 0 0 24px #ff8800, 0 0 48px #ff4400;
+        animation: popUp 1.2s ease-out forwards;
       }
       @keyframes popUp {
-        0% { transform: translateY(0) scale(1); opacity: 1; }
-        100% { transform: translateY(-40px) scale(0.6); opacity: 0; }
+        0% { transform: translateY(0) scale(1.5); opacity: 1; }
+        30% { transform: translateY(-20px) scale(1.0); opacity: 1; }
+        100% { transform: translateY(-80px) scale(0.3); opacity: 0; }
       }
     </style>
   </head>
@@ -102,30 +334,45 @@
     <canvas id="game"></canvas>
     <div id="hud">
       <div class="hud-item">
-        <span class="hud-label">Score</span>
+        <span class="hud-label">得点</span>
         <span class="hud-value" id="hud-score">0</span>
       </div>
       <div class="hud-item">
-        <span class="hud-label">Level</span>
+        <span class="hud-label">段位</span>
         <span class="hud-value" id="hud-level">1</span>
       </div>
       <div class="hud-item">
-        <span class="hud-label">Power</span>
+        <span class="hud-label">貫通</span>
         <span class="hud-value penetration-stars" id="hud-penetration"></span>
       </div>
       <div class="hud-item">
-        <span class="hud-label">Lives</span>
-        <span class="hud-value lives" id="hud-lives"></span>
+        <span class="hud-label">玉色</span>
+        <div class="ball-color-indicator" id="hud-ball-color"></div>
+      </div>
+      <div class="hud-item">
+        <span class="hud-value world-info" id="hud-world">桜花 ─ 1</span>
       </div>
     </div>
-    <div id="level-up">LEVEL UP!</div>
+    <div id="flash"></div>
+    <div id="rainbow-border"></div>
+    <div id="shockwave"></div>
+    <div id="level-up"></div>
+    <div id="combo"></div>
+    <div id="big-text"></div>
     <div id="overlay">
-      <h1 id="overlay-title">BOKUZUSHI</h1>
-      <p id="overlay-message">CLICK TO START</p>
-      <p class="sub" id="overlay-sub">Star Breaker</p>
+      <h1 id="overlay-title">星砕き</h1>
+      <p id="overlay-message">ステージを選べ</p>
+      <p class="sub" id="overlay-sub">BOKUZUSHI</p>
+      <div id="world-select" class="show">
+        <div id="world-select-label">─ 選 択 ─</div>
+      </div>
+      <div class="color-hint">
+        同じ色の玉で<span style="background:#ff4466"></span><span style="background:#4488ff"></span><span style="background:#44cc88"></span><span style="background:#ffcc44"></span>ブロックを砕け
+      </div>
       <div class="controls">
-        MOUSE / TOUCH &mdash; Move Paddle<br/>
-        CLICK &mdash; Launch Ball
+        マウス / タッチ ─ パドル移動<br/>
+        クリック / タップ ─ 発射<br/>
+        玉がパドルに当たると色が変わる
       </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
