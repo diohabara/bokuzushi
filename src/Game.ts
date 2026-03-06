@@ -17,6 +17,9 @@ import {
   PADDLE_WIDTH,
   BLOCK_WIDTH,
   BLOCK_HEIGHT,
+  BG_STAR_COUNT,
+  SHAKE_INTENSITY,
+  SHAKE_DURATION,
 } from "./constants";
 
 type GameState = "start" | "playing" | "gameover" | "roundclear";
@@ -46,11 +49,14 @@ export class Game {
 
   private lastTime = 0;
   private mouseX = 0;
+  private shakeTimer = 0;
+  private shakeIntensity = 0;
+  private cameraBasePos = new THREE.Vector3(0, 0, 20);
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-    this.renderer.setPixelRatio(window.devicePixelRatio);
-    this.renderer.setClearColor(0x0a0a1a);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setClearColor(0x050510);
 
     const aspect = window.innerWidth / window.innerHeight;
     const viewH = GAME_HEIGHT;
@@ -58,18 +64,25 @@ export class Game {
     this.camera = new THREE.OrthographicCamera(
       -viewW / 2, viewW / 2, viewH / 2, -viewH / 2, 0.1, 100
     );
-    this.camera.position.z = 20;
+    this.camera.position.copy(this.cameraBasePos);
 
     this.scene = new THREE.Scene();
-    this.scene.add(new THREE.AmbientLight(0x404060, 1.5));
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+
+    // Lighting
+    this.scene.add(new THREE.AmbientLight(0x303050, 1.2));
+    const dirLight = new THREE.DirectionalLight(0xeeeeff, 0.8);
     dirLight.position.set(5, 10, 15);
     this.scene.add(dirLight);
+    const rimLight = new THREE.DirectionalLight(0x4466ff, 0.3);
+    rimLight.position.set(-5, -5, 10);
+    this.scene.add(rimLight);
+
+    this.createBackgroundStars();
 
     this.paddle = new Paddle();
     this.scene.add(this.paddle.mesh);
 
-    this.ball = new Ball();
+    this.ball = new Ball(this.scene);
     this.scene.add(this.ball.mesh);
 
     this.starField = new StarField(this.scene);
@@ -95,32 +108,78 @@ export class Game {
     this.updateHUD();
   }
 
+  private createBackgroundStars() {
+    const geo = new THREE.SphereGeometry(0.04, 4, 4);
+    for (let i = 0; i < BG_STAR_COUNT; i++) {
+      const brightness = 0.3 + Math.random() * 0.7;
+      const mat = new THREE.MeshBasicMaterial({
+        color: new THREE.Color(brightness, brightness, brightness * 1.2),
+        transparent: true,
+        opacity: 0.3 + Math.random() * 0.5,
+      });
+      const star = new THREE.Mesh(geo, mat);
+      star.position.set(
+        (Math.random() - 0.5) * GAME_WIDTH * 1.5,
+        (Math.random() - 0.5) * GAME_HEIGHT * 1.2,
+        -5 - Math.random() * 10
+      );
+      star.scale.setScalar(0.5 + Math.random() * 2);
+      this.scene.add(star);
+    }
+  }
+
   private createWalls() {
     const wallMat = new THREE.MeshStandardMaterial({
-      color: 0x222244,
-      emissive: 0x111133,
-      emissiveIntensity: 0.3,
+      color: 0x1a1a3a,
+      emissive: 0x0a0a2a,
+      emissiveIntensity: 0.5,
+      metalness: 0.8,
+      roughness: 0.3,
     });
+
+    // Left wall
     const leftWall = new THREE.Mesh(
-      new THREE.BoxGeometry(WALL_THICKNESS, GAME_HEIGHT, 1),
+      new THREE.BoxGeometry(WALL_THICKNESS, GAME_HEIGHT + WALL_THICKNESS, 1),
       wallMat
     );
     leftWall.position.set(-GAME_WIDTH / 2 - WALL_THICKNESS / 2, 0, 0);
     this.scene.add(leftWall);
 
+    // Right wall
     const rightWall = new THREE.Mesh(
-      new THREE.BoxGeometry(WALL_THICKNESS, GAME_HEIGHT, 1),
+      new THREE.BoxGeometry(WALL_THICKNESS, GAME_HEIGHT + WALL_THICKNESS, 1),
       wallMat
     );
     rightWall.position.set(GAME_WIDTH / 2 + WALL_THICKNESS / 2, 0, 0);
     this.scene.add(rightWall);
 
+    // Top wall
     const topWall = new THREE.Mesh(
       new THREE.BoxGeometry(GAME_WIDTH + WALL_THICKNESS * 2, WALL_THICKNESS, 1),
       wallMat
     );
     topWall.position.set(0, GAME_HEIGHT / 2 + WALL_THICKNESS / 2, 0);
     this.scene.add(topWall);
+
+    // Subtle edge glow on walls
+    const edgeMat = new THREE.MeshBasicMaterial({
+      color: 0x2244aa,
+      transparent: true,
+      opacity: 0.15,
+    });
+    const leftEdge = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.1, GAME_HEIGHT),
+      edgeMat
+    );
+    leftEdge.position.set(-GAME_WIDTH / 2 + 0.05, 0, 0.1);
+    this.scene.add(leftEdge);
+
+    const rightEdge = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.1, GAME_HEIGHT),
+      edgeMat
+    );
+    rightEdge.position.set(GAME_WIDTH / 2 - 0.05, 0, 0.1);
+    this.scene.add(rightEdge);
   }
 
   private setupInput() {
@@ -180,7 +239,7 @@ export class Game {
     this.lives = INITIAL_LIVES;
     this.blocksDestroyed = 0;
     this.round = 1;
-    this.ball.speed = 0.12;
+    this.ball.speed = 0.1;
     this.ball.updateGlow(0);
     this.starField.generate();
     this.ball.reset(this.paddle.x);
@@ -213,6 +272,19 @@ export class Game {
     this.hud.update(this.score, this.level, this.penetrationLevel, this.lives);
   }
 
+  private shake(intensity = SHAKE_INTENSITY) {
+    this.shakeTimer = SHAKE_DURATION;
+    this.shakeIntensity = intensity;
+  }
+
+  private worldToScreen(wx: number, wy: number): { x: number; y: number } {
+    const aspect = window.innerWidth / window.innerHeight;
+    const viewW = GAME_HEIGHT * aspect;
+    const sx = ((wx + viewW / 2) / viewW) * window.innerWidth;
+    const sy = ((-wy + GAME_HEIGHT / 2) / GAME_HEIGHT) * window.innerHeight;
+    return { x: sx, y: sy };
+  }
+
   private checkBallPaddle() {
     const bx = this.ball.mesh.position.x;
     const by = this.ball.mesh.position.y;
@@ -224,7 +296,8 @@ export class Game {
       bx - BALL_RADIUS <= this.paddle.right
     ) {
       const hitPos = (bx - this.paddle.x) / (PADDLE_WIDTH / 2);
-      const angle = Math.PI / 2 - hitPos * (Math.PI / 3);
+      const clampedHit = Math.max(-0.95, Math.min(0.95, hitPos));
+      const angle = Math.PI / 2 - clampedHit * (Math.PI / 3);
       this.ball.vx = Math.cos(angle) * this.ball.speed;
       this.ball.vy = Math.abs(Math.sin(angle) * this.ball.speed);
       this.ball.mesh.position.y = this.paddle.top + BALL_RADIUS;
@@ -241,43 +314,53 @@ export class Game {
     for (const block of this.starField.getAliveBlocks()) {
       const sx = block.mesh.position.x;
       const sy = block.mesh.position.y;
-      const scale = block.mesh.scale.x;
 
-      // AABB collision with scaled block
-      const hw = bhw * scale;
-      const hh = bhh * scale;
       if (
-        bx + BALL_RADIUS > sx - hw &&
-        bx - BALL_RADIUS < sx + hw &&
-        by + BALL_RADIUS > sy - hh &&
-        by - BALL_RADIUS < sy + hh
+        bx + BALL_RADIUS > sx - bhw &&
+        bx - BALL_RADIUS < sx + bhw &&
+        by + BALL_RADIUS > sy - bhh &&
+        by - BALL_RADIUS < sy + bhh
       ) {
         const color = (
           (block.mesh.material as THREE.MeshStandardMaterial).color as THREE.Color
         ).getHex();
 
+        let points = 0;
         if (this.ball.penetrationRemaining >= block.hp) {
-          // Penetrate through: destroy block, reduce counter
+          // Penetrate through
           this.ball.penetrationRemaining -= block.hp;
+          points = block.maxHp * 10;
           block.destroy();
           this.particles.burst(sx, sy, color);
-          this.score += block.maxHp * 10;
+          this.score += points;
           this.onBlockDestroyed();
+          this.shake(0.08);
         } else if (this.ball.penetrationRemaining > 0) {
-          // Partial penetration: deal damage, bounce
+          // Partial penetration
           block.hit(this.ball.penetrationRemaining);
           this.ball.penetrationRemaining = 0;
-          this.bounceOffBlock(bx, by, sx, sy, hw, hh);
+          this.bounceOffBlock(bx, by, sx, sy, bhw, bhh);
+          this.shake(0.05);
         } else {
-          // No penetration: deal 1 damage, bounce
+          // Normal hit
           const destroyed = block.hit(1);
           if (destroyed) {
+            points = block.maxHp * 10;
             this.particles.burst(sx, sy, color);
-            this.score += block.maxHp * 10;
+            this.score += points;
             this.onBlockDestroyed();
+            this.shake(0.08);
+          } else {
+            this.shake(0.03);
           }
-          this.bounceOffBlock(bx, by, sx, sy, hw, hh);
+          this.bounceOffBlock(bx, by, sx, sy, bhw, bhh);
         }
+
+        if (points > 0) {
+          const screenPos = this.worldToScreen(sx, sy);
+          this.hud.showScorePopup(screenPos.x, screenPos.y, points);
+        }
+        this.updateHUD();
       }
     }
 
@@ -289,12 +372,16 @@ export class Game {
       const dist = Math.sqrt((bx - sx) ** 2 + (by - sy) ** 2);
       if (dist < BALL_RADIUS + star.boundingRadius) {
         star.destroy();
-        this.particles.burst(sx, sy, 0xffd700);
-        this.score += 200;
-        // Star bonus: +1 penetration level
+        this.particles.starBurst(sx, sy);
+        const points = 200;
+        this.score += points;
         this.penetrationLevel = Math.min(this.penetrationLevel + 1, MAX_PENETRATION);
         this.ball.updateGlow(this.penetrationLevel);
         this.onBlockDestroyed();
+        this.shake(0.25);
+        const screenPos = this.worldToScreen(sx, sy);
+        this.hud.showScorePopup(screenPos.x, screenPos.y, points);
+        this.hud.showLevelUp(this.level);
         // Bounce
         const dx = bx - sx;
         const dy = by - sy;
@@ -303,6 +390,7 @@ export class Game {
         } else {
           this.ball.vy = Math.abs(this.ball.vy) * Math.sign(dy);
         }
+        this.updateHUD();
       }
     }
   }
@@ -312,7 +400,6 @@ export class Game {
     sx: number, sy: number,
     hw: number, hh: number
   ) {
-    // Determine which side was hit
     const overlapLeft = (bx + BALL_RADIUS) - (sx - hw);
     const overlapRight = (sx + hw) - (bx - BALL_RADIUS);
     const overlapTop = (sy + hh) - (by - BALL_RADIUS);
@@ -332,12 +419,12 @@ export class Game {
       this.level++;
       this.penetrationLevel = Math.min(this.penetrationLevel + 1, MAX_PENETRATION);
       this.ball.updateGlow(this.penetrationLevel);
+      this.hud.showLevelUp(this.level);
     }
-    this.updateHUD();
   }
 
   start() {
-    this.showOverlay("BOKUZUSHI", "Click to Start", "Mouse / Touch to move paddle");
+    this.showOverlay("BOKUZUSHI", "CLICK TO START", "Star Breaker");
     this.lastTime = performance.now();
     this.loop();
   }
@@ -345,10 +432,11 @@ export class Game {
   private loop = () => {
     requestAnimationFrame(this.loop);
     const now = performance.now();
-    const dt = (now - this.lastTime) / 1000;
+    const dt = Math.min((now - this.lastTime) / 1000, 0.05);
     this.lastTime = now;
 
-    this.paddle.setX(this.mouseX);
+    this.paddle.setTargetX(this.mouseX);
+    this.paddle.update();
 
     if (this.state === "playing") {
       if (!this.ball.active) {
@@ -358,6 +446,7 @@ export class Game {
       const lost = this.ball.update();
       if (lost) {
         this.lives--;
+        this.shake(0.3);
         this.updateHUD();
         if (this.lives <= 0) {
           this.state = "gameover";
@@ -370,15 +459,27 @@ export class Game {
       this.checkBallPaddle();
       this.checkBallBlocks();
       this.starField.update();
+      this.ball.updateTrail();
 
       if (this.starField.aliveCount === 0 && this.state === "playing") {
         this.state = "roundclear";
         this.showOverlay(
-          "ROUND CLEAR!",
-          `Round ${this.round} Complete`,
+          `ROUND ${this.round} CLEAR!`,
+          `Score: ${this.score}`,
           "Click for Next Round"
         );
       }
+    }
+
+    // Camera shake
+    if (this.shakeTimer > 0) {
+      this.shakeTimer -= dt;
+      const t = this.shakeTimer / SHAKE_DURATION;
+      this.camera.position.x = this.cameraBasePos.x + (Math.random() - 0.5) * this.shakeIntensity * t;
+      this.camera.position.y = this.cameraBasePos.y + (Math.random() - 0.5) * this.shakeIntensity * t;
+    } else {
+      this.camera.position.x = this.cameraBasePos.x;
+      this.camera.position.y = this.cameraBasePos.y;
     }
 
     this.particles.update(dt);

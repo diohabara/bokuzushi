@@ -11,21 +11,31 @@ import {
 export class Paddle {
   mesh: THREE.Mesh;
   private halfWidth = PADDLE_WIDTH / 2;
+  private targetX = 0;
 
   constructor() {
     const geo = new THREE.BoxGeometry(PADDLE_WIDTH, PADDLE_HEIGHT, PADDLE_DEPTH);
+    // Rounded edges feel
     const mat = new THREE.MeshStandardMaterial({
       color: PADDLE_COLOR,
       emissive: PADDLE_COLOR,
-      emissiveIntensity: 0.3,
+      emissiveIntensity: 0.4,
+      metalness: 0.6,
+      roughness: 0.2,
     });
     this.mesh = new THREE.Mesh(geo, mat);
     this.mesh.position.set(0, PADDLE_Y, 0);
   }
 
-  setX(x: number) {
+  setTargetX(x: number) {
+    this.targetX = x;
+  }
+
+  update() {
+    // Smooth follow
     const limit = GAME_WIDTH / 2 - this.halfWidth;
-    this.mesh.position.x = Math.max(-limit, Math.min(limit, x));
+    const clamped = Math.max(-limit, Math.min(limit, this.targetX));
+    this.mesh.position.x += (clamped - this.mesh.position.x) * 0.25;
   }
 
   get left() {

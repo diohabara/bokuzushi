@@ -10,24 +10,27 @@ import {
 
 export class Ball {
   mesh: THREE.Mesh;
+  trail: THREE.Mesh[] = [];
   vx = 0;
   vy = 0;
   speed = BALL_SPEED;
   penetrationRemaining = 0;
   active = false;
   private glow: THREE.PointLight;
+  private scene: THREE.Scene;
 
-  constructor() {
+  constructor(scene: THREE.Scene) {
+    this.scene = scene;
     const geo = new THREE.SphereGeometry(BALL_RADIUS, 16, 16);
     const mat = new THREE.MeshStandardMaterial({
       color: BALL_COLOR,
       emissive: BALL_COLOR,
-      emissiveIntensity: 0.5,
+      emissiveIntensity: 0.8,
     });
     this.mesh = new THREE.Mesh(geo, mat);
     this.mesh.position.set(0, PADDLE_Y + 0.5, 0);
 
-    this.glow = new THREE.PointLight(0xffffff, 0.5, 5);
+    this.glow = new THREE.PointLight(0xffffff, 1, 6);
     this.mesh.add(this.glow);
   }
 
@@ -45,17 +48,51 @@ export class Ball {
     this.vx = 0;
     this.vy = 0;
     this.mesh.position.set(paddleX, PADDLE_Y + 0.5, 0);
+    this.clearTrail();
   }
 
   updateGlow(penetrationLevel: number) {
-    const intensity = 0.3 + penetrationLevel * 0.2;
+    const intensity = 0.8 + penetrationLevel * 0.3;
     this.glow.intensity = intensity;
-    const hue = penetrationLevel / 10;
-    const color = new THREE.Color().setHSL(hue * 0.15, 1, 0.6);
+    this.glow.distance = 6 + penetrationLevel * 0.5;
+    const hue = 0.12 + penetrationLevel * 0.015;
+    const color = new THREE.Color().setHSL(hue, 1, 0.6);
     (this.mesh.material as THREE.MeshStandardMaterial).emissive = color;
     (this.mesh.material as THREE.MeshStandardMaterial).emissiveIntensity =
-      0.5 + penetrationLevel * 0.15;
+      0.8 + penetrationLevel * 0.15;
     this.glow.color = color;
+  }
+
+  private clearTrail() {
+    for (const t of this.trail) {
+      this.scene.remove(t);
+    }
+    this.trail = [];
+  }
+
+  updateTrail() {
+    if (!this.active) return;
+    // Add trail dot
+    const geo = new THREE.SphereGeometry(BALL_RADIUS * 0.5, 6, 6);
+    const mat = new THREE.MeshBasicMaterial({
+      color: (this.mesh.material as THREE.MeshStandardMaterial).emissive,
+      transparent: true,
+      opacity: 0.4,
+    });
+    const dot = new THREE.Mesh(geo, mat);
+    dot.position.copy(this.mesh.position);
+    this.scene.add(dot);
+    this.trail.push(dot);
+
+    // Fade and remove old trail
+    for (let i = this.trail.length - 1; i >= 0; i--) {
+      const m = this.trail[i].material as THREE.MeshBasicMaterial;
+      m.opacity -= 0.06;
+      if (m.opacity <= 0) {
+        this.scene.remove(this.trail[i]);
+        this.trail.splice(i, 1);
+      }
+    }
   }
 
   update() {
