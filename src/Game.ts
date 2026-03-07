@@ -761,9 +761,9 @@ export class Game {
           if (Math.random() < 0.2) {
             this.hud.showBigText(this.pick(["貫通!!", "突破!", "粉砕!", "一閃!"]), "atsu");
           }
-        } else if (!block.indestructible && this.ball.colorIndex >= block.colorIndex) {
-          // Same or stronger tier → deal damage (bounce)
-          const dmg = 1 + Math.max(0, this.ball.colorIndex - block.colorIndex);
+        } else {
+          // Same or weaker tier → deal colorIndex+1 damage (bounce)
+          const dmg = this.ball.colorIndex + 1;
           this.onBlockHit();
           const destroyed = block.hit(dmg);
           if (destroyed) {
@@ -781,30 +781,6 @@ export class Game {
             this.shake(0.15);
             this.flashScreen("rgba(255,255,255,0.3)", 80);
           }
-          this.bounceOffBlock(bx, by, sx, sy, bhw, bhh);
-        } else if (block.indestructible) {
-          // Indestructible block → chip damage (bounce)
-          const chipDmg = Math.max(2, this.ball.colorIndex);
-          const destroyed = block.hit(chipDmg);
-          if (destroyed) {
-            this.onBlockHit();
-            points = block.maxHp * 10;
-            this.onBlockDestroyed();
-            this.particles.burst(sx, sy, color);
-            this.score += points;
-            this.addCombo();
-            this.shake(0.3, 0.15);
-          } else {
-            this.particles.hitBurst(sx, sy, color);
-            this.shake(0.15);
-            this.flashScreen("rgba(255,255,255,0.3)", 80);
-          }
-          this.bounceOffBlock(bx, by, sx, sy, bhw, bhh);
-        } else {
-          // Ball weaker than block → bounce only, no damage
-          this.particles.hitBurst(sx, sy, color);
-          this.shake(0.1);
-          this.flashScreen("rgba(255,255,255,0.15)", 60);
           this.bounceOffBlock(bx, by, sx, sy, bhw, bhh);
         }
 
