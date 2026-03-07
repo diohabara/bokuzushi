@@ -232,7 +232,10 @@ export class StarField {
     // Place star: earlier worlds → closer to paddle (lower rows), later worlds → deeper
     const starDepth = Math.min(0.3 + worldIndex * 0.15, 0.7);
     const starRow = Math.floor(rows * starDepth) + Math.floor(Math.random() * 2 - 0.5);
-    const starCol = Math.floor(cols / 2) + Math.floor(Math.random() * 2 - 0.5);
+    // Offset star from center column to prevent straight-line penetration
+    const centerCol = Math.floor(cols / 2);
+    const colOffset = 2 + Math.floor(Math.random() * 2); // 2-3 columns off-center
+    const starCol = Math.min(cols - 2, Math.max(1, centerCol + (Math.random() < 0.5 ? -colOffset : colOffset)));
 
     // Generate indestructible mask
     const indestructibleMask = generateIndestructibleMask(

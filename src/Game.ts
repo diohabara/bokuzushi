@@ -529,9 +529,9 @@ export class Game {
       this.hud.showCombo(this.combo);
     }
 
-    // Combo level bonus: combos accelerate level-up
+    // Combo level bonus: combos accelerate level-up (halved to prevent too-fast leveling)
     if (this.combo >= 3) {
-      this.hitCount += this.combo;
+      this.hitCount += Math.floor(this.combo / 2);
       this.checkLevelUp();
       this.updateHUD();
     }
