@@ -206,6 +206,26 @@ function generateIndestructibleMask(
   return mask;
 }
 
+export function getStarPlacementProfile(worldIndex: number, waveIndex: number) {
+  const totalStages = WORLD_THEMES.length * 3 - 1;
+  const stageProgress = Math.min((worldIndex * 3 + waveIndex) / Math.max(totalStages, 1), 1);
+  const waveBottomRatios = [0.5, 0.7, 0.9];
+  const baseBottomRatio = waveBottomRatios[waveIndex % waveBottomRatios.length] ?? 0.5;
+  const worldDepthBonus = Math.min(worldIndex * 0.02, 0.06);
+  const bottomRatio = Math.min(baseBottomRatio + worldDepthBonus, 0.93);
+  return {
+    stageProgress,
+    bottomRatio,
+    starDepth: 1 - bottomRatio,
+    colOffsetBase: stageProgress < 0.35 ? 1 : 2,
+    allowWideOffset: stageProgress > 0.7,
+    pathHalfWidth: stageProgress < 0.34 ? 1 : 0,
+    guardTierBoost: stageProgress < 0.3 ? 0 : stageProgress < 0.68 ? 1 : 2,
+    guardHpMultiplier: 1 + stageProgress * 0.75,
+    guardRadius: stageProgress < 0.45 ? 1 : 2,
+  };
+}
+
 export class StarField {
   blocks: Block[] = [];
   star: Star | null = null;
@@ -229,12 +249,17 @@ export class StarField {
     // HP: 1 base + wave bonus (later waves = tougher)
     const baseHp = 1 + waveIndex;
 
-    // Place star: earlier worlds → closer to paddle (lower rows), later worlds → deeper
-    const starDepth = Math.min(0.3 + worldIndex * 0.15, 0.7);
-    const starRow = Math.floor(rows * starDepth) + Math.floor(Math.random() * 2 - 0.5);
-    // Offset star from center column to prevent straight-line penetration
+    // Place star: start close in early stages, then push deeper as worlds and waves progress.
+    const placement = getStarPlacementProfile(worldIndex, waveIndex);
+    const starDepth = placement.starDepth;
+    const unclampedRow = Math.floor(rows * starDepth) + Math.floor(Math.random() * 2);
+    const starRow = Math.min(rows - 4, Math.max(2, unclampedRow));
+
+    // Offset star from center only a little in early stages, then widen later.
     const centerCol = Math.floor(cols / 2);
-    const colOffset = 2 + Math.floor(Math.random() * 2); // 2-3 columns off-center
+    const colOffsetBase = placement.colOffsetBase;
+    const colOffsetExtra = placement.allowWideOffset ? Math.floor(Math.random() * 2) : 0;
+    const colOffset = colOffsetBase + colOffsetExtra;
     const starCol = Math.min(cols - 2, Math.max(1, centerCol + (Math.random() < 0.5 ? -colOffset : colOffset)));
 
     // Generate indestructible mask
@@ -242,7 +267,7 @@ export class StarField {
       theme.indestructiblePattern, cols, rows
     );
 
-    // Clear indestructible mask around star (3x3) and below star (path to paddle)
+    // Keep the star area destructible, but let later stages remain more crowded.
     for (let dr = -1; dr <= 1; dr++) {
       for (let dc = -1; dc <= 1; dc++) {
         const mr = starRow + dr;
@@ -252,12 +277,13 @@ export class StarField {
         }
       }
     }
-    // Clear column below star for reachability
+    // Clear only the guaranteed lane below the star. Early stages get a wider lane.
     for (let r = starRow + 1; r < rows; r++) {
       indestructibleMask[r][starCol] = false;
-      // Also clear neighbors for wider path
-      if (starCol > 0) indestructibleMask[r][starCol - 1] = false;
-      if (starCol < cols - 1) indestructibleMask[r][starCol + 1] = false;
+      for (let offset = 1; offset <= placement.pathHalfWidth; offset++) {
+        if (starCol - offset >= 0) indestructibleMask[r][starCol - offset] = false;
+        if (starCol + offset < cols) indestructibleMask[r][starCol + offset] = false;
+      }
     }
 
     for (let row = 0; row < rows; row++) {
@@ -288,10 +314,19 @@ export class StarField {
           // Normal block: color tier spread across rows within world's tier limit
           const maxTier = theme.maxColorTier;
           const t = rows > 1 ? (rows - 1 - row) / (rows - 1) : 0;
-          const colorIndex = Math.min(Math.floor(t * (maxTier + 1)), maxTier);
+          const baseColorIndex = Math.min(Math.floor(t * (maxTier + 1)), maxTier);
+          const starDistance = Math.abs(row - starRow) + Math.abs(col - starCol);
+          const inGuardZone = starDistance <= placement.guardRadius;
+          const appliedBoost = inGuardZone
+            ? Math.max(0, placement.guardTierBoost - Math.max(0, starDistance - 1))
+            : 0;
+          const colorIndex = Math.min(baseColorIndex + appliedBoost, maxTier);
           const color = BLOCK_COLORS[colorIndex];
-          const tierHp = baseHp * (1 + colorIndex);
-          const block = new Block(x, y, color, colorIndex, tierHp, row);
+          const baseTierHp = baseHp * (1 + colorIndex);
+          const guardHp = inGuardZone
+            ? Math.ceil(baseTierHp * placement.guardHpMultiplier)
+            : baseTierHp;
+          const block = new Block(x, y, color, colorIndex, guardHp, row);
           this.blocks.push(block);
           this.scene.add(block.mesh);
         }

@@ -13,8 +13,6 @@ import {
   BALL_SPEED,
   BALL_SPEED_INCREMENT,
   BALL_MAX_SPEED,
-  HITS_BASE,
-  HITS_GROWTH,
   WAVES_PER_WORLD,
   WORLD_SPEED_BONUS,
   MAX_WORLDS,
@@ -34,8 +32,23 @@ import {
   COMBO_CHO_GEKIATSU,
   COMBO_FEVER,
 } from "./constants";
+import {
+  applyBlockHit,
+  applyBonusHits,
+  chargeFever,
+  createProgressionState,
+  getBounceAxis,
+  getComboCelebrationTier,
+  getScoreMultiplier,
+  mergeRanking,
+  resolveBlockHit,
+  tickTimers,
+  type ProgressionResult,
+  type ProgressionState,
+} from "./gameRules";
 
 type GameState = "start" | "playing" | "gameover" | "waveclear" | "worldclear";
+type RankingEntry = { score: number; world: string; date: string };
 
 export class Game {
   private renderer: THREE.WebGLRenderer;
@@ -50,78 +63,70 @@ export class Game {
 
   private state: GameState = "start";
   private score = 0;
-  private level = 1;
-  private hitCount = 0;
-  private nextLevelHits = HITS_BASE;
   private world = 1;
   private wave = 1;
   private paddleBounces = 0;
   private blocksDestroyed = 0;
   private reachShown = false;
   private unlockedWorld = 1;
-
-  // Combo
-  private combo = 0;
-  private comboTimer = 0;
-  private readonly COMBO_TIMEOUT = 2.0;
+  private progression: ProgressionState = createProgressionState();
 
   private paused = false;
+  private coarsePointer = false;
 
   private overlay: HTMLElement;
   private overlayTitle: HTMLElement;
   private overlayMessage: HTMLElement;
   private overlaySub: HTMLElement;
+  private overlayActionBtn: HTMLButtonElement;
+  private overlaySecondaryActionBtn: HTMLButtonElement;
   private flashEl: HTMLElement;
   private worldSelectEl: HTMLElement;
   private rainbowBorderEl: HTMLElement;
   private shockwaveEl: HTMLElement;
-  private pauseBtn: HTMLElement;
+  private pauseBtn: HTMLButtonElement;
   private pauseOverlay: HTMLElement;
+  private pauseResumeBtn: HTMLButtonElement;
+  private pauseWorldSelectBtn: HTMLButtonElement;
+
+  private worldButtons: HTMLButtonElement[] = [];
+  private overlayActionHandler: (() => void) | null = null;
+  private overlaySecondaryActionHandler: (() => void) | null = null;
 
   private lastTime = 0;
   private mouseX = 0;
+  private keyboardDirection = 0;
   private shakeTimer = 0;
   private shakeIntensity = 0;
   private cameraBasePos = new THREE.Vector3(0, 0, 20);
+  private viewCenterY = -0.2;
 
   private timeScale = 1;
   private slowMotionTimer = 0;
-
-  // Rainbow flash cycle
   private rainbowTimer = 0;
-
-  // Screen zoom effect
   private zoomTarget = 1;
   private zoomCurrent = 1;
-
-  // Background pulse
-  private bgPulseTimer = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setClearColor(0x050510);
 
-    const aspect = window.innerWidth / window.innerHeight;
-    const viewH = GAME_HEIGHT;
-    const viewW = viewH * aspect;
-    this.camera = new THREE.OrthographicCamera(
-      -viewW / 2, viewW / 2, viewH / 2, -viewH / 2, 0.1, 100
-    );
+    this.camera = new THREE.OrthographicCamera(-GAME_WIDTH / 2, GAME_WIDTH / 2, GAME_HEIGHT / 2, -GAME_HEIGHT / 2, 0.1, 100);
     this.camera.position.copy(this.cameraBasePos);
 
     this.scene = new THREE.Scene();
-
     this.scene.add(new THREE.AmbientLight(0x303050, 1.2));
+
     const dirLight = new THREE.DirectionalLight(0xeeeeff, 0.8);
     dirLight.position.set(5, 10, 15);
     this.scene.add(dirLight);
+
     const rimLight = new THREE.DirectionalLight(0x4466ff, 0.3);
     rimLight.position.set(-5, -5, 10);
     this.scene.add(rimLight);
 
     this.worldBg = new WorldBackground(this.scene);
-
     this.paddle = new Paddle();
     this.scene.add(this.paddle.mesh);
 
@@ -136,51 +141,53 @@ export class Game {
     this.overlayTitle = document.getElementById("overlay-title")!;
     this.overlayMessage = document.getElementById("overlay-message")!;
     this.overlaySub = document.getElementById("overlay-sub")!;
+    this.overlayActionBtn = document.getElementById("overlay-action") as HTMLButtonElement;
+    this.overlaySecondaryActionBtn = document.getElementById("overlay-secondary-action") as HTMLButtonElement;
     this.flashEl = document.getElementById("flash")!;
     this.worldSelectEl = document.getElementById("world-select")!;
     this.rainbowBorderEl = document.getElementById("rainbow-border")!;
     this.shockwaveEl = document.getElementById("shockwave")!;
-    this.pauseBtn = document.getElementById("pause-btn")!;
+    this.pauseBtn = document.getElementById("pause-btn") as HTMLButtonElement;
     this.pauseOverlay = document.getElementById("pause-overlay")!;
+    this.pauseResumeBtn = document.getElementById("pause-resume-btn") as HTMLButtonElement;
+    this.pauseWorldSelectBtn = document.getElementById("pause-world-select-btn") as HTMLButtonElement;
 
-    this.pauseBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      this.togglePause();
-    });
-    this.pauseBtn.addEventListener("touchend", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this.togglePause();
-    });
-    this.pauseOverlay.addEventListener("click", () => this.togglePause());
-    this.pauseOverlay.addEventListener("touchend", (e) => {
-      e.preventDefault();
-      this.togglePause();
-    });
+    this.coarsePointer = window.matchMedia("(pointer: coarse)").matches;
 
     this.unlockedWorld = parseInt(localStorage.getItem("bokuzushi_unlocked") ?? "1", 10);
+
+    this.pauseBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      this.togglePause();
+    });
+    this.pauseResumeBtn.addEventListener("click", () => this.togglePause());
+    this.pauseWorldSelectBtn.addEventListener("click", () => this.returnToWorldSelect());
+    this.overlayActionBtn.addEventListener("click", () => this.handleOverlayAction());
+    this.overlaySecondaryActionBtn.addEventListener("click", () => this.handleOverlaySecondaryAction());
+
     this.createWorldButtons();
     this.createWalls();
     this.setupInput();
+    this.applyMobileLayout();
     this.resize();
     window.addEventListener("resize", () => this.resize());
-
-    this.overlay.addEventListener("click", () => this.handleOverlayClick());
-    this.overlay.addEventListener("touchend", (e) => {
-      e.preventDefault();
-      this.handleOverlayClick();
-    });
 
     this.updateHUD();
   }
 
-  private worldButtons: HTMLButtonElement[] = [];
+  private applyMobileLayout() {
+    const lift = this.coarsePointer ? 2.45 : 0;
+    this.paddle.setY(this.paddle.baseY + lift);
+    this.ball.reset(this.paddle.x, this.paddle.y);
+  }
 
   private createWorldButtons() {
     for (let i = 1; i <= MAX_WORLDS; i++) {
       const theme = WORLD_THEMES[i - 1];
       const btn = document.createElement("button");
       btn.className = "world-btn";
+      btn.type = "button";
+      btn.setAttribute("aria-label", `${theme.name} を開始`);
       btn.style.borderColor = theme.btnColor;
       btn.style.background = theme.btnBg;
 
@@ -199,52 +206,56 @@ export class Game {
       subSpan.textContent = theme.subtitle;
       btn.appendChild(subSpan);
 
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
+      const stages = document.createElement("div");
+      stages.className = "world-btn-stages";
+      for (let stageIndex = 0; stageIndex < WAVES_PER_WORLD; stageIndex++) {
+        const stage = document.createElement("span");
+        stage.className = "world-btn-stage";
+        stage.classList.add("filled");
+        stages.appendChild(stage);
+      }
+      btn.appendChild(stages);
+
+      btn.addEventListener("click", () => {
         if (i <= this.unlockedWorld) this.startNewGame(i);
       });
-      btn.addEventListener("touchend", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (i <= this.unlockedWorld) this.startNewGame(i);
-      });
+
       this.worldSelectEl.appendChild(btn);
       this.worldButtons.push(btn);
     }
+
     this.updateWorldButtons();
   }
 
   private updateWorldButtons() {
     for (let i = 0; i < this.worldButtons.length; i++) {
       const btn = this.worldButtons[i];
-      if (i + 1 <= this.unlockedWorld) {
-        btn.classList.remove("locked");
-        btn.style.opacity = "1";
-      } else {
-        btn.classList.add("locked");
-        btn.style.opacity = "0.3";
-      }
+      const unlocked = i + 1 <= this.unlockedWorld;
+      btn.classList.toggle("locked", !unlocked);
+      btn.style.opacity = unlocked ? "1" : "0.35";
+      btn.disabled = !unlocked;
+      btn.setAttribute("aria-disabled", unlocked ? "false" : "true");
     }
   }
 
   private createWalls() {
     const wallMat = new THREE.MeshStandardMaterial({
-      color: 0x1a1a3a, emissive: 0x0a0a2a, emissiveIntensity: 0.5,
-      metalness: 0.8, roughness: 0.3,
+      color: 0x1a1a3a,
+      emissive: 0x0a0a2a,
+      emissiveIntensity: 0.5,
+      metalness: 0.8,
+      roughness: 0.3,
     });
-    const leftWall = new THREE.Mesh(
-      new THREE.BoxGeometry(WALL_THICKNESS, GAME_HEIGHT + WALL_THICKNESS, 1), wallMat
-    );
+
+    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(WALL_THICKNESS, GAME_HEIGHT + WALL_THICKNESS, 1), wallMat);
     leftWall.position.set(-GAME_WIDTH / 2 - WALL_THICKNESS / 2, 0, 0);
     this.scene.add(leftWall);
-    const rightWall = new THREE.Mesh(
-      new THREE.BoxGeometry(WALL_THICKNESS, GAME_HEIGHT + WALL_THICKNESS, 1), wallMat
-    );
+
+    const rightWall = new THREE.Mesh(new THREE.BoxGeometry(WALL_THICKNESS, GAME_HEIGHT + WALL_THICKNESS, 1), wallMat);
     rightWall.position.set(GAME_WIDTH / 2 + WALL_THICKNESS / 2, 0, 0);
     this.scene.add(rightWall);
-    const topWall = new THREE.Mesh(
-      new THREE.BoxGeometry(GAME_WIDTH + WALL_THICKNESS * 2, WALL_THICKNESS, 1), wallMat
-    );
+
+    const topWall = new THREE.Mesh(new THREE.BoxGeometry(GAME_WIDTH + WALL_THICKNESS * 2, WALL_THICKNESS, 1), wallMat);
     topWall.position.set(0, GAME_HEIGHT / 2 + WALL_THICKNESS / 2, 0);
     this.scene.add(topWall);
 
@@ -252,83 +263,211 @@ export class Game {
     const leftEdge = new THREE.Mesh(new THREE.PlaneGeometry(0.1, GAME_HEIGHT), edgeMat);
     leftEdge.position.set(-GAME_WIDTH / 2 + 0.05, 0, 0.1);
     this.scene.add(leftEdge);
+
     const rightEdge = new THREE.Mesh(new THREE.PlaneGeometry(0.1, GAME_HEIGHT), edgeMat);
     rightEdge.position.set(GAME_WIDTH / 2 - 0.05, 0, 0.1);
     this.scene.add(rightEdge);
   }
 
   private setupInput() {
-    window.addEventListener("mousemove", (e) => {
-      this.mouseX = this.screenToWorldX(e.clientX);
+    window.addEventListener("mousemove", (event) => {
+      this.mouseX = this.screenToWorldX(event.clientX);
     });
-    window.addEventListener("touchmove", (e) => {
-      e.preventDefault();
-      if (e.touches.length > 0) {
-        this.mouseX = this.screenToWorldX(e.touches[0].clientX);
+
+    window.addEventListener("touchmove", (event) => {
+      event.preventDefault();
+      if (event.touches.length > 0) {
+        this.mouseX = this.screenToWorldX(event.touches[0].clientX);
       }
     }, { passive: false });
-    window.addEventListener("click", () => {
-      if (this.state === "playing" && !this.ball.active) {
-        this.ball.launch();
-      }
+
+    window.addEventListener("click", (event) => {
+      if ((event.target as HTMLElement | null)?.closest("button")) return;
+      this.handlePrimaryAction();
     });
-    window.addEventListener("touchend", () => {
-      if (this.state === "playing" && !this.ball.active) {
-        this.ball.launch();
-      }
+    window.addEventListener("touchend", (event) => {
+      if ((event.target as HTMLElement | null)?.closest("button")) return;
+      this.handlePrimaryAction();
     });
+    window.addEventListener("keydown", (event) => this.handleKeyDown(event));
+    window.addEventListener("keyup", this.handleKeyUp);
+  }
+
+  private handleKeyDown(event: KeyboardEvent) {
+    if (!this.coarsePointer && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+      event.preventDefault();
+      this.keyboardDirection = event.key === "ArrowLeft" ? -1 : 1;
+      return;
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      this.togglePause();
+      return;
+    }
+
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      this.handlePrimaryAction();
+    }
+  }
+
+  private handleKeyUp = (event: KeyboardEvent) => {
+    if (!this.coarsePointer && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+      event.preventDefault();
+      if ((event.key === "ArrowLeft" && this.keyboardDirection < 0) || (event.key === "ArrowRight" && this.keyboardDirection > 0)) {
+        this.keyboardDirection = 0;
+      }
+    }
+  };
+
+  private handlePrimaryAction() {
+    if (!this.overlay.classList.contains("hidden")) {
+      this.handleOverlayAction();
+      return;
+    }
+
+    if (this.state === "playing" && !this.ball.active && !this.paused) {
+      this.ball.launch();
+    }
+  }
+
+  private handleOverlayAction() {
+    this.overlayActionHandler?.();
+  }
+
+  private handleOverlaySecondaryAction() {
+    this.overlaySecondaryActionHandler?.();
+  }
+
+  private setOverlayActions(
+    primaryLabel: string | null,
+    primaryHandler: (() => void) | null,
+    secondaryLabel: string | null,
+    secondaryHandler: (() => void) | null
+  ) {
+    this.overlayActionHandler = primaryHandler;
+    this.overlaySecondaryActionHandler = secondaryHandler;
+
+    if (!primaryLabel || !primaryHandler) {
+      this.overlayActionBtn.classList.add("hidden");
+    } else {
+      this.overlayActionBtn.textContent = primaryLabel;
+      this.overlayActionBtn.classList.remove("hidden");
+    }
+
+    if (!secondaryLabel || !secondaryHandler) {
+      this.overlaySecondaryActionBtn.classList.add("hidden");
+    } else {
+      this.overlaySecondaryActionBtn.textContent = secondaryLabel;
+      this.overlaySecondaryActionBtn.classList.remove("hidden");
+    }
   }
 
   private screenToWorldX(screenX: number): number {
-    const ndc = (screenX / window.innerWidth) * 2 - 1;
-    const aspect = window.innerWidth / window.innerHeight;
-    return ndc * (GAME_HEIGHT * aspect) / 2;
+    const ratio = screenX / window.innerWidth;
+    const bounds = this.getViewBounds();
+    return bounds.left + (bounds.right - bounds.left) * ratio;
+  }
+
+  private getViewBounds() {
+    const width = (this.camera.right - this.camera.left) / this.camera.zoom;
+    const height = (this.camera.top - this.camera.bottom) / this.camera.zoom;
+    const centerX = (this.camera.left + this.camera.right) / 2;
+    const centerY = (this.camera.top + this.camera.bottom) / 2;
+    return {
+      left: centerX - width / 2,
+      right: centerX + width / 2,
+      top: centerY + height / 2,
+      bottom: centerY - height / 2,
+    };
   }
 
   private resize() {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    this.renderer.setSize(w, h);
-    const aspect = w / h;
-    const viewH = GAME_HEIGHT;
-    const viewW = viewH * aspect;
-    this.camera.left = -viewW / 2;
-    this.camera.right = viewW / 2;
-    this.camera.top = viewH / 2;
-    this.camera.bottom = -viewH / 2;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    this.renderer.setSize(width, height);
+
+    const aspect = width / height;
+    const baseAspect = GAME_WIDTH / GAME_HEIGHT;
+    const fitWidth = aspect <= baseAspect;
+    const safeBottom = this.coarsePointer ? 4.6 : 2.2;
+    const safeTop = 0.8;
+
+    let viewWidth: number;
+    let viewHeight: number;
+
+    if (fitWidth) {
+      viewWidth = GAME_WIDTH + 1.6;
+      viewHeight = viewWidth / aspect;
+    } else {
+      viewHeight = GAME_HEIGHT + safeBottom + safeTop;
+      viewWidth = viewHeight * aspect;
+    }
+
+    this.viewCenterY = this.coarsePointer ? -1.1 : -0.6;
+    this.camera.left = -viewWidth / 2;
+    this.camera.right = viewWidth / 2;
+    this.camera.top = viewHeight / 2 + this.viewCenterY;
+    this.camera.bottom = -viewHeight / 2 + this.viewCenterY;
     this.camera.updateProjectionMatrix();
   }
 
   private togglePause() {
     if (this.state !== "playing") return;
+
     this.paused = !this.paused;
-    if (this.paused) {
-      this.pauseOverlay.classList.add("show");
-    } else {
-      this.pauseOverlay.classList.remove("show");
+    this.pauseOverlay.classList.toggle("show", this.paused);
+    this.pauseOverlay.setAttribute("aria-hidden", this.paused ? "false" : "true");
+
+    if (!this.paused) {
       this.lastTime = performance.now();
     }
   }
 
-  private handleOverlayClick() {
-    if (this.state === "start") return;
-    if (this.state === "gameover") {
-      this.showStartScreen();
-    } else if (this.state === "waveclear") {
-      this.nextWave();
-    } else if (this.state === "worldclear") {
-      this.nextWorld();
-    }
+  private returnToWorldSelect() {
+    this.paused = false;
+    this.pauseOverlay.classList.remove("show");
+    this.pauseOverlay.setAttribute("aria-hidden", "true");
+    this.showStartScreen();
   }
 
   private showStartScreen() {
     this.state = "start";
     this.pauseBtn.classList.add("hidden");
     this.pauseOverlay.classList.remove("show");
-    this.updateWorldButtons();
+    this.pauseOverlay.setAttribute("aria-hidden", "true");
     this.worldSelectEl.classList.add("show");
-    this.showOverlay("星砕き", "ステージを選べ", "BOKUZUSHI");
+    this.updateWorldButtons();
+    this.showOverlay("星砕き", "ステージを選べ", "BOKUZUSHI", null, null);
     this.showRanking();
+  }
+
+  private showOverlay(
+    title: string,
+    message: string,
+    sub: string,
+    primaryLabel: string | null,
+    primaryHandler: (() => void) | null,
+    secondaryLabel: string | null = null,
+    secondaryHandler: (() => void) | null = null
+  ) {
+    const ranking = document.getElementById("ranking");
+    if (ranking) ranking.style.display = primaryHandler || secondaryHandler ? "none" : "block";
+    this.pauseBtn.classList.toggle("hidden", this.state !== "playing");
+    if (primaryHandler || secondaryHandler) {
+      this.worldSelectEl.classList.remove("show");
+    }
+    this.overlayTitle.textContent = title;
+    this.overlayMessage.textContent = message;
+    this.overlaySub.textContent = sub;
+    this.setOverlayActions(primaryLabel, primaryHandler, secondaryLabel, secondaryHandler);
+    this.overlay.classList.remove("hidden");
+  }
+
+  private hideOverlay() {
+    this.overlay.classList.add("hidden");
+    this.setOverlayActions(null, null, null, null);
   }
 
   private showRanking() {
@@ -338,7 +477,9 @@ export class Game {
       el.id = "ranking";
       this.overlay.appendChild(el);
     }
+    el.style.display = "block";
     el.textContent = "";
+
     const ranking = this.getRanking();
     if (ranking.length === 0) return;
 
@@ -347,23 +488,37 @@ export class Game {
     title.textContent = "RANKING";
     el.appendChild(title);
 
-    ranking.forEach((entry, i) => {
+    ranking.forEach((entry, index) => {
       const row = document.createElement("div");
       row.className = "ranking-row";
+
       const rank = document.createElement("span");
       rank.className = "ranking-rank";
-      rank.textContent = `${i + 1}.`;
+      rank.textContent = `${index + 1}.`;
+
       const score = document.createElement("span");
       score.className = "ranking-score";
       score.textContent = String(entry.score);
+
       const world = document.createElement("span");
       world.className = "ranking-world";
       world.textContent = entry.world;
+
       row.appendChild(rank);
       row.appendChild(score);
       row.appendChild(world);
       el!.appendChild(row);
     });
+  }
+
+  private resetRoundMomentum() {
+    this.progression.combo = 0;
+    this.progression.comboTimer = 0;
+    this.progression.feverGauge = 0;
+    this.progression.feverActive = false;
+    this.progression.feverTimer = 0;
+    this.timeScale = 1;
+    this.slowMotionTimer = 0;
   }
 
   private getBaseSpeed(): number {
@@ -375,93 +530,99 @@ export class Game {
   }
 
   private colorToHex(colorNum: number): string {
-    return "#" + colorNum.toString(16).padStart(6, "0");
-  }
-
-  private startNewGame(startWorld: number) {
-    this.score = 0;
-    this.level = 1;
-    this.hitCount = 0;
-    this.nextLevelHits = HITS_BASE;
-    this.world = startWorld;
-    this.wave = 1;
-    this.combo = 0;
-    this.comboTimer = 0;
-    this.paddleBounces = 0;
-    this.blocksDestroyed = 0;
-    this.reachShown = false;
-    this.ball.speed = this.getBaseSpeed();
-    this.ball.colorIndex = 0;
-    this.ball.applyColor();
-    this.ball.updateGlow();
-    this.starField.generate(0, this.world - 1);
-    this.ball.reset(this.paddle.x);
-    this.particles.setWorld(this.world - 1);
-    this.worldBg.generate(this.world - 1);
-    this.state = "playing";
-    this.paused = false;
-    this.pauseOverlay.classList.remove("show");
-    this.pauseBtn.classList.remove("hidden");
-    this.worldSelectEl.classList.remove("show");
-    this.overlay.classList.add("hidden");
-    this.updateHUD();
-    this.hud.updateBallColor(this.getBallColorHex());
+    return `#${colorNum.toString(16).padStart(6, "0")}`;
   }
 
   private getBallColorHex(): string {
-    if (this.ball.colorIndex >= BLOCK_COLORS.length) {
+    if (this.progression.ballColorIndex >= BLOCK_COLORS.length) {
       return this.colorToHex(BALL_COLOR_BLACK);
     }
-    return this.colorToHex(BLOCK_COLORS[this.ball.colorIndex]);
+    return this.colorToHex(BLOCK_COLORS[this.progression.ballColorIndex]);
   }
 
-  private nextWave() {
-    this.wave++;
-    this.blocksDestroyed = 0;
-    this.reachShown = false;
-    this.ball.speed = Math.min(this.ball.speed + BALL_SPEED_INCREMENT, BALL_MAX_SPEED);
-    this.starField.generate(this.wave - 1, this.world - 1);
-    this.ball.reset(this.paddle.x);
-    this.state = "playing";
-    this.overlay.classList.add("hidden");
-    this.updateHUD();
-  }
-
-  private nextWorld() {
-    this.world++;
-    this.wave = 1;
-    this.level = 1;
-    this.hitCount = 0;
-    this.nextLevelHits = HITS_BASE;
-    this.combo = 0;
-    this.blocksDestroyed = 0;
-    this.reachShown = false;
-    this.ball.speed = this.getBaseSpeed();
-    this.ball.colorIndex = 0;
+  private syncBallTier() {
+    this.ball.colorIndex = this.progression.ballColorIndex;
     this.ball.applyColor();
     this.ball.updateGlow();
-    this.starField.generate(0, this.world - 1);
-    this.ball.reset(this.paddle.x);
-    this.particles.setWorld(this.world - 1);
-    this.worldBg.generate(this.world - 1);
-    this.state = "playing";
-    this.overlay.classList.add("hidden");
-    this.updateHUD();
     this.hud.updateBallColor(this.getBallColorHex());
-  }
-
-  private showOverlay(title: string, message: string, sub = "") {
-    this.overlayTitle.textContent = title;
-    this.overlayMessage.textContent = message;
-    this.overlaySub.textContent = sub;
-    this.overlay.classList.remove("hidden");
   }
 
   private updateHUD() {
     this.hud.update(
-      this.score, this.level, this.ball.colorIndex,
-      this.world, this.wave, this.getWorldName()
+      this.score,
+      this.progression.level,
+      this.progression.ballColorIndex,
+      this.world,
+      this.wave,
+      this.getWorldName()
     );
+    this.hud.updateBallColor(this.getBallColorHex());
+    this.hud.updateFever(this.progression.feverGauge, this.progression.feverActive);
+  }
+
+  private startNewGame(startWorld: number) {
+    this.score = 0;
+    this.world = startWorld;
+    this.wave = 1;
+    this.paddleBounces = 0;
+    this.blocksDestroyed = 0;
+    this.reachShown = false;
+    this.progression = createProgressionState();
+    this.resetRoundMomentum();
+    this.syncBallTier();
+    this.ball.speed = this.getBaseSpeed();
+    this.starField.generate(0, this.world - 1);
+    this.particles.setWorld(this.world - 1);
+    this.worldBg.generate(this.world - 1);
+    this.ball.reset(this.paddle.x, this.paddle.y);
+    this.mouseX = this.paddle.x;
+    this.state = "playing";
+    this.paused = false;
+    this.pauseBtn.classList.remove("hidden");
+    this.worldSelectEl.classList.remove("show");
+    this.hideOverlay();
+    this.updateHUD();
+    this.pauseBtn.classList.remove("hidden");
+  }
+
+  private nextWave() {
+    this.wave += 1;
+    this.blocksDestroyed = 0;
+    this.reachShown = false;
+    this.resetRoundMomentum();
+    this.ball.speed = Math.min(this.ball.speed + BALL_SPEED_INCREMENT, BALL_MAX_SPEED);
+    this.starField.generate(this.wave - 1, this.world - 1);
+    this.ball.reset(this.paddle.x, this.paddle.y);
+    this.mouseX = this.paddle.x;
+    this.state = "playing";
+    this.hideOverlay();
+    this.pauseBtn.classList.remove("hidden");
+    this.updateHUD();
+  }
+
+  private nextWorld() {
+    if (this.world >= MAX_WORLDS) {
+      this.showStartScreen();
+      return;
+    }
+
+    this.world += 1;
+    this.wave = 1;
+    this.blocksDestroyed = 0;
+    this.reachShown = false;
+    this.progression = createProgressionState();
+    this.resetRoundMomentum();
+    this.syncBallTier();
+    this.ball.speed = this.getBaseSpeed();
+    this.starField.generate(0, this.world - 1);
+    this.particles.setWorld(this.world - 1);
+    this.worldBg.generate(this.world - 1);
+    this.ball.reset(this.paddle.x, this.paddle.y);
+    this.mouseX = this.paddle.x;
+    this.state = "playing";
+    this.hideOverlay();
+    this.pauseBtn.classList.remove("hidden");
+    this.updateHUD();
   }
 
   private shake(intensity = SHAKE_INTENSITY, duration = SHAKE_DURATION) {
@@ -474,7 +635,7 @@ export class Game {
     this.flashEl.style.opacity = String(intensity);
     this.flashEl.style.transition = "none";
     void this.flashEl.offsetWidth;
-    this.flashEl.style.transition = `opacity ${duration}ms ease-out`;
+    this.flashEl.style.transition = `opacity ${Math.round(duration)}ms ease-out`;
     this.flashEl.style.opacity = "0";
   }
 
@@ -486,14 +647,14 @@ export class Game {
   private multiFlash(count: number, interval: number, colors: string[]) {
     for (let i = 0; i < count; i++) {
       setTimeout(() => {
-        this.flashScreen(colors[i % colors.length], interval * 0.8, 0.4);
+        this.flashScreen(colors[i % colors.length], interval * 0.75, 0.36);
       }, i * interval);
     }
   }
 
   private startSlowMotion(duration: number) {
-    this.timeScale = 0.5;
-    this.slowMotionTimer = Math.min(duration, 0.4);
+    this.timeScale = 0.55;
+    this.slowMotionTimer = Math.min(duration, 0.45);
   }
 
   private triggerShockwave(x: number, y: number) {
@@ -504,109 +665,136 @@ export class Game {
     this.shockwaveEl.classList.add("active");
   }
 
-  private screenZoom(target: number, returnSpeed = 0.08) {
+  private screenZoom(target: number) {
     this.zoomTarget = target;
-    setTimeout(() => { this.zoomTarget = 1; }, 200);
+    setTimeout(() => {
+      this.zoomTarget = 1;
+    }, 180);
   }
 
   private worldToScreen(wx: number, wy: number): { x: number; y: number } {
-    const aspect = window.innerWidth / window.innerHeight;
-    const viewW = GAME_HEIGHT * aspect;
-    const sx = ((wx + viewW / 2) / viewW) * window.innerWidth;
-    const sy = ((-wy + GAME_HEIGHT / 2) / GAME_HEIGHT) * window.innerHeight;
-    return { x: sx, y: sy };
+    const bounds = this.getViewBounds();
+    const xRatio = (wx - bounds.left) / (bounds.right - bounds.left);
+    const yRatio = (bounds.top - wy) / (bounds.top - bounds.bottom);
+    return {
+      x: xRatio * window.innerWidth,
+      y: yRatio * window.innerHeight,
+    };
   }
 
-  private pick(arr: string[]): string {
-    return arr[Math.floor(Math.random() * arr.length)];
+  private pick<T>(items: T[]): T {
+    return items[Math.floor(Math.random() * items.length)];
+  }
+
+  private pushProgression(result: ProgressionResult) {
+    this.progression = result.state;
+    if (result.leveledUp.length > 0) {
+      for (const level of result.leveledUp) {
+        this.hud.showLevelUp(level);
+      }
+      this.syncBallTier();
+
+      if (this.progression.ballColorIndex === BALL_MAX_TIER) {
+        this.hud.showBigText("覚醒!! 黒", "kakuhen");
+        this.multiFlash(12, 50, ["#111111", "#ffffff", "#9933cc", "#ffffff"]);
+        this.shake(1.1, 0.7);
+        this.rainbowFlash(3.5);
+        this.startSlowMotion(0.8);
+        this.screenZoom(1.15);
+      } else {
+        this.multiFlash(4, 80, ["#ffd700", "#ffffff", "#ffaa00", "#ffd700"]);
+        this.shake(0.4, 0.3);
+        this.screenZoom(1.05);
+      }
+    }
+
+    if (result.feverTriggered) {
+      this.hud.showBigText("FEVER RUSH", "kakuhen");
+      this.multiFlash(10, 55, ["#ffd700", "#ff8844", "#ff4477", "#ffffff"]);
+      this.rainbowFlash(4);
+      this.startSlowMotion(0.35);
+      this.shake(0.7, 0.45);
+      this.screenZoom(1.12);
+    }
+  }
+
+  private addScore(points: number) {
+    const multiplier = getScoreMultiplier(this.progression);
+    this.score += Math.round(points * multiplier);
   }
 
   private addCombo() {
-    this.combo++;
-    this.comboTimer = this.COMBO_TIMEOUT;
+    this.progression.combo += 1;
+    this.progression.comboTimer = 2;
 
-    if (this.combo >= 2) {
-      this.hud.showCombo(this.combo);
+    if (this.progression.combo >= 2) {
+      this.hud.showCombo(this.progression.combo);
     }
 
-    // Combo level bonus: combos accelerate level-up (halved to prevent too-fast leveling)
-    if (this.combo >= 3) {
-      this.hitCount += Math.floor(this.combo / 2);
-      this.checkLevelUp();
-      this.updateHUD();
+    if (this.progression.combo >= 3) {
+      this.pushProgression(applyBonusHits(this.progression, Math.floor(this.progression.combo / 2)));
     }
 
-    if (this.combo === COMBO_ATSU) {
+    const combo = this.progression.combo;
+    const tier = getComboCelebrationTier(combo);
+    if (!tier) return;
+
+    if (combo === COMBO_ATSU) {
       this.hud.showBigText(this.pick(["アツい!!", "チャンス!", "来てる!"]), "atsu");
-      this.multiFlash(3, 80, ["#ff8800", "#ffff00", "#ff4400"]);
-      this.shake(0.4, 0.3);
-      this.rainbowFlash(1.0);
-      this.screenZoom(1.05);
-    } else if (this.combo === COMBO_GEKIATSU) {
+      this.multiFlash(3, 90, ["#ff8800", "#ffff00", "#ff4400"]);
+      this.shake(0.35, 0.25);
+      this.screenZoom(1.04);
+    } else if (combo === COMBO_GEKIATSU) {
       this.hud.showBigText(this.pick(["激アツ!!", "魚群出現!!", "赤保留!!"]), "gekiatsu");
-      this.multiFlash(6, 70, ["#ff0000", "#ff8800", "#ffff00", "#ff0000", "#ff4400", "#ffaa00"]);
-      this.shake(0.6, 0.4);
-      this.rainbowFlash(2.5);
-      this.startSlowMotion(0.3);
-      this.screenZoom(1.1);
-    } else if (this.combo === COMBO_KAKUHEN) {
+      this.multiFlash(5, 80, ["#ff0000", "#ff8800", "#ffff00"]);
+      this.shake(0.55, 0.35);
+      this.rainbowFlash(1.8);
+      this.startSlowMotion(0.25);
+      this.screenZoom(1.08);
+    } else if (combo === COMBO_KAKUHEN) {
       this.hud.showBigText(this.pick(["確変突入!!", "金保留!!", "確定演出!!"]), "kakuhen");
-      this.multiFlash(12, 50, ["#ff0000", "#ff8800", "#ffff00", "#00ff00", "#0088ff", "#ff00ff"]);
-      this.shake(0.8, 0.6);
-      this.rainbowFlash(4.0);
+      this.multiFlash(8, 65, ["#ff0000", "#ff8800", "#ffff00", "#00ff00", "#0088ff"]);
+      this.shake(0.7, 0.45);
+      this.rainbowFlash(3);
+      this.startSlowMotion(0.35);
+      this.screenZoom(1.1);
+    } else if (combo === COMBO_OOATARI || combo === COMBO_CHO_GEKIATSU || combo >= COMBO_FEVER) {
+      this.hud.showBigText(this.pick(["大当たり!!!", "全回転!!!!", "∞ FEVER ∞"]), "kakuhen");
+      this.multiFlash(tier === "jackpot" ? 14 : 10, 45, ["#ff0000", "#ffffff", "#ff8800", "#ffff00", "#00ff00", "#0088ff", "#ff00ff"]);
+      this.shake(1.0, 0.7);
+      this.rainbowFlash(5);
       this.startSlowMotion(0.5);
       this.screenZoom(1.15);
-    } else if (this.combo === COMBO_OOATARI) {
-      this.hud.showBigText(this.pick(["大当たり!!!", "V入賞!!!", "プレミア!!!"]), "kakuhen");
-      this.multiFlash(20, 40, ["#ff0000", "#ffffff", "#ff8800", "#ffff00", "#00ff00", "#0088ff", "#ff00ff"]);
-      this.shake(1.0, 0.8);
-      this.rainbowFlash(6.0);
-      this.startSlowMotion(0.8);
-      this.screenZoom(1.2);
-    } else if (this.combo === COMBO_CHO_GEKIATSU) {
-      this.hud.showBigText(this.pick(["超激アツ!!!!", "全回転!!!!", "レインボー!!!!"]), "kakuhen");
-      this.multiFlash(30, 30, ["#ff0000", "#ffffff", "#ff8800", "#ffff00", "#00ff00", "#0088ff", "#ff00ff", "#ffffff"]);
-      this.shake(1.5, 1.0);
-      this.rainbowFlash(10.0);
-      this.startSlowMotion(1.0);
-      this.screenZoom(1.25);
-    } else if (this.combo >= COMBO_FEVER) {
-      this.hud.showBigText(this.pick(["F E V E R !!!!", "∞ F E V E R ∞", "超 絶 F E V E R"]), "kakuhen");
-      this.multiFlash(40, 25, ["#ff0000", "#ffffff", "#ff8800", "#ffff00", "#00ff00", "#0088ff", "#ff00ff", "#ffffff"]);
-      this.shake(2.0, 1.5);
-      this.rainbowFlash(15.0);
-      this.startSlowMotion(1.5);
-      this.screenZoom(1.3);
     }
   }
 
   private onBlockDestroyed() {
-    this.blocksDestroyed++;
-    const n = this.blocksDestroyed;
-    if (n === 10) {
+    this.blocksDestroyed += 1;
+    const count = this.blocksDestroyed;
+
+    if (count === 10) {
       this.hud.showBigText("好調!", "atsu");
-    } else if (n === 30) {
+    } else if (count === 30) {
       this.hud.showBigText("絶好調!!", "atsu");
       this.shake(0.3, 0.2);
-    } else if (n === 60) {
+    } else if (count === 60) {
       this.hud.showBigText(this.pick(["無双!!", "暴れ打ち!!"]), "gekiatsu");
-      this.shake(0.5, 0.3);
-      this.rainbowFlash(1.5);
-    } else if (n === 100) {
+      this.shake(0.45, 0.28);
+      this.rainbowFlash(1.4);
+    } else if (count === 100) {
       this.hud.showBigText("破壊神降臨!!!", "kakuhen");
-      this.shake(0.8, 0.5);
-      this.rainbowFlash(3.0);
-      this.screenZoom(1.1);
+      this.shake(0.7, 0.45);
+      this.rainbowFlash(2.4);
+      this.screenZoom(1.08);
     }
 
-    // リーチ: remaining non-indestructible blocks (excluding star)
     const alive = this.starField.aliveCount;
     if (!this.reachShown && alive <= 5 && alive > 0) {
       this.reachShown = true;
       this.hud.showBigText("リーチ!!", "gekiatsu");
-      this.shake(0.5, 0.3);
-      this.rainbowFlash(2.0);
-      this.multiFlash(4, 80, ["#ffd700", "#ffffff", "#ff8800", "#ffd700"]);
+      this.shake(0.4, 0.24);
+      this.rainbowFlash(1.8);
+      this.multiFlash(4, 90, ["#ffd700", "#ffffff", "#ff8800", "#ffd700"]);
     }
   }
 
@@ -614,11 +802,11 @@ export class Game {
     const bx = this.ball.mesh.position.x;
     const by = this.ball.mesh.position.y;
     if (
-      this.ball.vy < 0 &&
-      by - BALL_RADIUS <= this.paddle.top &&
-      by + BALL_RADIUS >= this.paddle.bottom &&
-      bx + BALL_RADIUS >= this.paddle.left &&
-      bx - BALL_RADIUS <= this.paddle.right
+      this.ball.vy < 0
+      && by - BALL_RADIUS <= this.paddle.top
+      && by + BALL_RADIUS >= this.paddle.bottom
+      && bx + BALL_RADIUS >= this.paddle.left
+      && bx - BALL_RADIUS <= this.paddle.right
     ) {
       const hitPos = (bx - this.paddle.x) / (PADDLE_WIDTH / 2);
       const clampedHit = Math.max(-0.95, Math.min(0.95, hitPos));
@@ -626,98 +814,7 @@ export class Game {
       this.ball.vx = Math.cos(angle) * this.ball.speed;
       this.ball.vy = Math.abs(Math.sin(angle) * this.ball.speed);
       this.ball.mesh.position.y = this.paddle.top + BALL_RADIUS;
-      this.paddleBounces++;
-
-      // Update paddle color to match ball
-      const padMat = this.paddle.mesh.material as THREE.MeshStandardMaterial;
-      if (this.ball.colorIndex >= BLOCK_COLORS.length) {
-        padMat.color.setHex(BALL_COLOR_BLACK);
-        padMat.emissive.setHex(0xbb44ff);
-        padMat.emissiveIntensity = 2.0;
-      } else {
-        const curColor = BLOCK_COLORS[this.ball.colorIndex];
-        padMat.color.setHex(curColor);
-        padMat.emissive.setHex(curColor);
-        padMat.emissiveIntensity = 0.5;
-      }
-    }
-  }
-
-  private onBlockHit() {
-    this.hitCount++;
-    this.checkLevelUp();
-  }
-
-  private checkLevelUp() {
-    while (this.hitCount >= this.nextLevelHits && this.ball.colorIndex < BALL_MAX_TIER) {
-      this.hitCount -= this.nextLevelHits;
-      this.level++;
-      this.nextLevelHits = HITS_BASE + (this.level - 1) * HITS_GROWTH;
-      this.ball.colorIndex = Math.min(this.ball.colorIndex + 1, BALL_MAX_TIER);
-      this.ball.applyColor();
-      this.ball.updateGlow();
-      this.hud.updateBallColor(this.getBallColorHex());
-      this.hud.showLevelUp(this.level);
-      if (this.ball.colorIndex === BALL_MAX_TIER) {
-        this.hud.showBigText("覚醒!!黒", "kakuhen");
-        this.multiFlash(12, 50, ["#111111", "#ffffff", "#9933cc", "#ffffff", "#111111", "#8800ff"]);
-        this.shake(1.2, 0.8);
-        this.rainbowFlash(4.0);
-        this.startSlowMotion(0.8);
-        this.screenZoom(1.2);
-      } else {
-        this.multiFlash(4, 80, ["#ffd700", "#ffffff", "#ffaa00", "#ffd700"]);
-        this.shake(0.4, 0.3);
-        this.screenZoom(1.08);
-      }
-    }
-  }
-
-  private onStarDestroyed(sx: number, sy: number) {
-    // Immediately stop gameplay — prevent game over after star hit
-    this.ball.active = false;
-
-    this.particles.starBurst(sx, sy);
-    const starBonus = Math.max(100, 2000 - this.paddleBounces * 30);
-    this.score += starBonus;
-
-    // MEGA effects
-    this.shake(1.5, 1.0);
-    this.multiFlash(15, 60, ["#ffd700", "#ffffff", "#ff8800", "#ffd700", "#ffffff", "#ffee00", "#ff4400", "#ff00ff"]);
-    this.rainbowFlash(5.0);
-    this.screenZoom(1.3);
-
-    const screenPos = this.worldToScreen(sx, sy);
-    this.triggerShockwave(screenPos.x, screenPos.y);
-    this.hud.showScorePopup(screenPos.x, screenPos.y, starBonus);
-    this.hud.showBigText("★ V入賞 ★", "kakuhen");
-    this.updateHUD();
-
-    const themeName = this.getWorldName();
-    if (this.wave >= WAVES_PER_WORLD) {
-      this.state = "worldclear";
-      if (this.world >= this.unlockedWorld && this.world < MAX_WORLDS) {
-        this.unlockedWorld = this.world + 1;
-        localStorage.setItem("bokuzushi_unlocked", String(this.unlockedWorld));
-        this.updateWorldButtons();
-      }
-      this.saveScore();
-      setTimeout(() => {
-        this.showOverlay(
-          `${themeName} 制覇!!`,
-          `得点: ${this.score}`,
-          "タップで次へ"
-        );
-      }, 2000);
-    } else {
-      this.state = "waveclear";
-      setTimeout(() => {
-        this.showOverlay(
-          `第${this.wave}波 突破!!`,
-          `得点: ${this.score}`,
-          "タップで次へ"
-        );
-      }, 2000);
+      this.paddleBounces += 1;
     }
   }
 
@@ -732,67 +829,64 @@ export class Game {
       const sy = block.mesh.position.y;
 
       if (
-        bx + BALL_RADIUS > sx - bhw &&
-        bx - BALL_RADIUS < sx + bhw &&
-        by + BALL_RADIUS > sy - bhh &&
-        by - BALL_RADIUS < sy + bhh
+        bx + BALL_RADIUS > sx - bhw
+        && bx - BALL_RADIUS < sx + bhw
+        && by + BALL_RADIUS > sy - bhh
+        && by - BALL_RADIUS < sy + bhh
       ) {
-        // Color tier comparison
-        const color = (
-          (block.mesh.material as THREE.MeshStandardMaterial).color as THREE.Color
-        ).getHex();
+        const color = ((block.mesh.material as THREE.MeshStandardMaterial).color as THREE.Color).getHex();
+        const resolution = resolveBlockHit({
+          level: this.progression.level,
+          ballColorIndex: this.progression.ballColorIndex,
+          blockColorIndex: block.colorIndex,
+          blockMaxHp: block.maxHp,
+          indestructible: block.indestructible,
+        });
 
+        this.pushProgression(applyBlockHit(this.progression));
+
+        let destroyed = false;
         let points = 0;
 
-        if (!block.indestructible && this.ball.colorIndex > block.colorIndex) {
-          // Ball stronger than block → penetrating destroy (no bounce)
-          this.onBlockHit();
-          points = block.maxHp * 10;
+        if (resolution.destroysImmediately) {
+          destroyed = true;
           block.destroy();
+        } else {
+          destroyed = block.hit(resolution.damage);
+          if (resolution.shouldBounce) {
+            this.bounceOffBlock(bx, by, sx, sy, bhw, bhh);
+          }
+        }
+
+        if (destroyed) {
+          points = resolution.scoreOnDestroy;
           this.onBlockDestroyed();
-          this.particles.burst(sx, sy, color);
-          this.score += points;
+          this.addScore(points);
           this.addCombo();
-          this.shake(0.3, 0.15);
-          this.flashScreen("rgba(255,255,255,0.6)", 150, 0.4);
+
+          const feverCharge = resolution.feverGain + Math.min(this.progression.combo * 2, 18);
+          this.pushProgression(chargeFever(this.progression, feverCharge));
+
+          this.particles.burst(sx, sy, color);
+          this.shake(resolution.destroysImmediately ? 0.35 : 0.28, 0.16);
+          this.flashScreen("rgba(255,255,255,0.6)", 140, 0.42);
           const screenPos = this.worldToScreen(sx, sy);
           this.triggerShockwave(screenPos.x, screenPos.y);
-          // Penetration callout (20% chance)
-          if (Math.random() < 0.2) {
+          this.hud.showScorePopup(screenPos.x, screenPos.y, Math.round(points * getScoreMultiplier(this.progression)));
+          if (resolution.destroysImmediately && Math.random() < 0.25) {
             this.hud.showBigText(this.pick(["貫通!!", "突破!", "粉砕!", "一閃!"]), "atsu");
           }
         } else {
-          // Same or weaker tier → deal colorIndex+1 damage (bounce)
-          const dmg = this.ball.colorIndex + 1;
-          this.onBlockHit();
-          const destroyed = block.hit(dmg);
-          if (destroyed) {
-            points = block.maxHp * 10;
-            this.onBlockDestroyed();
-            this.particles.burst(sx, sy, color);
-            this.score += points;
-            this.addCombo();
-            this.shake(0.3, 0.15);
-            this.flashScreen("rgba(255,255,255,0.6)", 150, 0.4);
-            const screenPos = this.worldToScreen(sx, sy);
-            this.triggerShockwave(screenPos.x, screenPos.y);
-          } else {
-            this.particles.hitBurst(sx, sy, color);
-            this.shake(0.15);
-            this.flashScreen("rgba(255,255,255,0.3)", 80);
-          }
-          this.bounceOffBlock(bx, by, sx, sy, bhw, bhh);
+          this.pushProgression(chargeFever(this.progression, Math.max(3, Math.floor(resolution.feverGain / 3))));
+          this.particles.hitBurst(sx, sy, color);
+          this.shake(0.12, 0.14);
+          this.flashScreen("rgba(255,255,255,0.24)", 70, 0.18);
         }
 
-        if (points > 0) {
-          const screenPos = this.worldToScreen(sx, sy);
-          this.hud.showScorePopup(screenPos.x, screenPos.y, points);
-        }
         this.updateHUD();
       }
     }
 
-    // Star collision (always hittable regardless of color)
     const star = this.starField.star;
     if (star?.alive) {
       const sx = star.mesh.position.x;
@@ -801,79 +895,123 @@ export class Game {
       if (dist < BALL_RADIUS + star.boundingRadius) {
         star.destroy();
         this.onStarDestroyed(sx, sy);
+
         const dx = bx - sx;
         const dy = by - sy;
         if (Math.abs(dx) > Math.abs(dy)) {
-          this.ball.vx = Math.abs(this.ball.vx) * Math.sign(dx);
+          this.ball.vx = Math.abs(this.ball.vx) * Math.sign(dx || 1);
         } else {
-          this.ball.vy = Math.abs(this.ball.vy) * Math.sign(dy);
+          this.ball.vy = Math.abs(this.ball.vy) * Math.sign(dy || 1);
         }
       }
     }
   }
 
-  private bounceOffBlock(
-    bx: number, by: number, sx: number, sy: number, hw: number, hh: number
-  ) {
-    const overlapLeft = (bx + BALL_RADIUS) - (sx - hw);
-    const overlapRight = (sx + hw) - (bx - BALL_RADIUS);
-    const overlapTop = (sy + hh) - (by - BALL_RADIUS);
-    const overlapBottom = (by + BALL_RADIUS) - (sy - hh);
+  private onStarDestroyed(sx: number, sy: number) {
+    this.ball.active = false;
+    this.particles.starBurst(sx, sy);
 
-    // Only consider faces the ball is actually approaching
-    let minX = Infinity;
-    let minY = Infinity;
-    let signX = 0;
-    let signY = 0;
+    const starBonus = Math.max(100, 2000 - this.paddleBounces * 30);
+    this.addScore(starBonus);
+    this.pushProgression(chargeFever(this.progression, 40));
 
-    if (this.ball.vx > 0 && overlapLeft < minX) {
-      minX = overlapLeft; signX = -1; // hit left face → push left
-    }
-    if (this.ball.vx < 0 && overlapRight < minX) {
-      minX = overlapRight; signX = 1; // hit right face → push right
-    }
-    if (this.ball.vy > 0 && overlapBottom < minY) {
-      minY = overlapBottom; signY = -1; // hit bottom face → push down
-    }
-    if (this.ball.vy < 0 && overlapTop < minY) {
-      minY = overlapTop; signY = 1; // hit top face → push up
-    }
+    this.shake(1.1, 0.8);
+    this.multiFlash(12, 60, ["#ffd700", "#ffffff", "#ff8800", "#ff00ff"]);
+    this.rainbowFlash(4);
+    this.screenZoom(1.18);
 
-    if (minX <= minY && signX !== 0) {
-      this.ball.vx = Math.abs(this.ball.vx) * signX;
-      this.ball.mesh.position.x += signX * minX;
-    } else if (signY !== 0) {
-      this.ball.vy = Math.abs(this.ball.vy) * signY;
-      this.ball.mesh.position.y += signY * minY;
-    } else if (signX !== 0) {
-      this.ball.vx = Math.abs(this.ball.vx) * signX;
-      this.ball.mesh.position.x += signX * minX;
-    } else {
-      // Fallback: use original minimum overlap method
-      const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
-      if (minOverlap === overlapLeft || minOverlap === overlapRight) {
-        this.ball.vx = -this.ball.vx;
-      } else {
-        this.ball.vy = -this.ball.vy;
+    const screenPos = this.worldToScreen(sx, sy);
+    this.triggerShockwave(screenPos.x, screenPos.y);
+    this.hud.showScorePopup(screenPos.x, screenPos.y, Math.round(starBonus * getScoreMultiplier(this.progression)));
+    this.hud.showBigText("★ V入賞 ★", "kakuhen");
+    this.updateHUD();
+
+    const themeName = this.getWorldName();
+    this.saveScore();
+
+    if (this.wave >= WAVES_PER_WORLD) {
+      this.state = "worldclear";
+      if (this.world >= this.unlockedWorld && this.world < MAX_WORLDS) {
+        this.unlockedWorld = this.world + 1;
+        localStorage.setItem("bokuzushi_unlocked", String(this.unlockedWorld));
+        this.updateWorldButtons();
       }
+
+      setTimeout(() => {
+        if (this.world >= MAX_WORLDS) {
+          this.showOverlay(
+            "全世界制覇",
+            `得点: ${this.score}`,
+            `${themeName} を超えて、番付へ`,
+            "番付へ戻る",
+            () => this.showStartScreen()
+          );
+        } else {
+          this.showOverlay(
+            `${themeName} 制覇!!`,
+            `得点: ${this.score}`,
+            "次の世界へ進む",
+            "次の世界へ",
+            () => this.nextWorld()
+          );
+        }
+      }, 1800);
+    } else {
+      this.state = "waveclear";
+      setTimeout(() => {
+        this.showOverlay(
+          `第${this.wave}波 突破!!`,
+          `得点: ${this.score}`,
+          "一気に次の波へ",
+          "次の波へ",
+          () => this.nextWave()
+        );
+      }, 1400);
+    }
+  }
+
+  private bounceOffBlock(
+    bx: number,
+    by: number,
+    sx: number,
+    sy: number,
+    hw: number,
+    hh: number
+  ) {
+    const axis = getBounceAxis({
+      prevX: this.ball.prevX,
+      prevY: this.ball.prevY,
+      nextX: bx,
+      nextY: by,
+      blockX: sx,
+      blockY: sy,
+      halfWidth: hw,
+      halfHeight: hh,
+      radius: BALL_RADIUS,
+    });
+
+    if (axis === "x") {
+      const direction = this.ball.prevX <= sx ? -1 : 1;
+      this.ball.vx = Math.abs(this.ball.vx) * direction;
+      this.ball.mesh.position.x = sx + direction * (hw + BALL_RADIUS);
+    } else {
+      const direction = this.ball.prevY <= sy ? -1 : 1;
+      this.ball.vy = Math.abs(this.ball.vy) * direction;
+      this.ball.mesh.position.y = sy + direction * (hh + BALL_RADIUS);
     }
   }
 
   private saveScore() {
     if (this.score === 0) return;
-    const raw = localStorage.getItem("bokuzushi_ranking");
-    const ranking: { score: number; world: string; date: string }[] = raw ? JSON.parse(raw) : [];
-    ranking.push({
+    const top10 = mergeRanking(this.getRanking(), {
       score: this.score,
       world: this.getWorldName(),
       date: new Date().toLocaleDateString("ja-JP"),
     });
-    ranking.sort((a, b) => b.score - a.score);
-    const top10 = ranking.slice(0, 10);
     localStorage.setItem("bokuzushi_ranking", JSON.stringify(top10));
   }
 
-  private getRanking(): { score: number; world: string; date: string }[] {
+  private getRanking(): RankingEntry[] {
     const raw = localStorage.getItem("bokuzushi_ranking");
     return raw ? JSON.parse(raw) : [];
   }
@@ -886,28 +1024,23 @@ export class Game {
 
   private loop = () => {
     requestAnimationFrame(this.loop);
+
     if (this.paused) {
       this.renderer.render(this.scene, this.camera);
       return;
     }
+
     const now = performance.now();
     const dt = Math.min((now - this.lastTime) / 1000, 0.05);
     this.lastTime = now;
 
-    // Slow-motion
     if (this.slowMotionTimer > 0) {
       this.slowMotionTimer -= dt;
       if (this.slowMotionTimer <= 0) this.timeScale = 1;
     }
-    const scaledDt = dt * this.timeScale;
 
-    // Combo timer
-    if (this.comboTimer > 0) {
-      this.comboTimer -= dt;
-      if (this.comboTimer <= 0) this.combo = 0;
-    }
+    this.progression = tickTimers(this.progression, dt);
 
-    // Rainbow border timer
     if (this.rainbowTimer > 0) {
       this.rainbowTimer -= dt;
       if (this.rainbowTimer <= 0) {
@@ -915,10 +1048,13 @@ export class Game {
       }
     }
 
-    // Screen zoom interpolation
     this.zoomCurrent += (this.zoomTarget - this.zoomCurrent) * 0.1;
     this.camera.zoom = this.zoomCurrent;
     this.camera.updateProjectionMatrix();
+
+    if (!this.coarsePointer && this.keyboardDirection !== 0 && this.state === "playing") {
+      this.mouseX += this.keyboardDirection * dt * 18;
+    }
 
     this.paddle.setTargetX(this.mouseX);
     this.paddle.update();
@@ -926,17 +1062,25 @@ export class Game {
     if (this.state === "playing") {
       if (!this.ball.active) {
         this.ball.mesh.position.x = this.paddle.x;
+        this.ball.mesh.position.y = this.paddle.y + 0.5;
       }
 
       const lost = this.ball.update(this.timeScale);
       if (lost) {
-        // No lives - instant game over
-        this.shake(1.0, 0.5);
-        this.multiFlash(8, 60, ["#ff0022", "#ffffff", "#ff0022", "#880000"]);
+        this.shake(0.9, 0.45);
+        this.multiFlash(6, 70, ["#ff0022", "#ffffff", "#880000"]);
         this.state = "gameover";
         this.saveScore();
         setTimeout(() => {
-          this.showOverlay("終了", `得点: ${this.score}`, "タップでやり直し");
+          this.showOverlay(
+            "ゲームオーバー",
+            `得点: ${this.score}`,
+            "流れを切り替える",
+            "もう一度",
+            () => this.startNewGame(this.world),
+            "ワールド選択",
+            () => this.showStartScreen()
+          );
         }, 500);
       }
 
@@ -944,15 +1088,14 @@ export class Game {
       this.checkBallBlocks();
       this.starField.update();
       this.ball.updateTrail();
+      this.updateHUD();
     }
 
-    // Camera shake
     if (this.shakeTimer > 0) {
       this.shakeTimer -= dt;
       const t = Math.max(0, this.shakeTimer / SHAKE_DURATION);
       this.camera.position.x = this.cameraBasePos.x + (Math.random() - 0.5) * this.shakeIntensity * t;
       this.camera.position.y = this.cameraBasePos.y + (Math.random() - 0.5) * this.shakeIntensity * t;
-      // Also rotate camera slightly for extra drama
       this.camera.rotation.z = (Math.random() - 0.5) * this.shakeIntensity * t * 0.02;
     } else {
       this.camera.position.x = this.cameraBasePos.x;
@@ -962,7 +1105,7 @@ export class Game {
     }
 
     this.worldBg.update(dt);
-    this.particles.update(scaledDt);
+    this.particles.update(dt * this.timeScale);
     this.renderer.render(this.scene, this.camera);
   };
 }

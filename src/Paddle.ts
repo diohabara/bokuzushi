@@ -10,6 +10,7 @@ import {
 
 export class Paddle {
   mesh: THREE.Mesh;
+  readonly baseY = PADDLE_Y;
   private halfWidth = PADDLE_WIDTH / 2;
   private targetX = 0;
 
@@ -29,6 +30,10 @@ export class Paddle {
 
   setTargetX(x: number) {
     this.targetX = x;
+  }
+
+  setY(y: number) {
+    this.mesh.position.y = y;
   }
 
   update() {
@@ -52,5 +57,8 @@ export class Paddle {
   }
   get x() {
     return this.mesh.position.x;
+  }
+  get y() {
+    return this.mesh.position.y;
   }
 }

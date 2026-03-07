@@ -1,3 +1,5 @@
+import { BALL_FINAL_TIER, TIER_CONTENT, WORLD_CONTENT } from "./gameContent";
+
 export const GAME_WIDTH = 16;
 export const GAME_HEIGHT = 22;
 
@@ -25,17 +27,9 @@ export const BLOCK_SPACING_Y = 0.6;
 export const BLOCK_START_Y = GAME_HEIGHT / 2 - 1.8;
 
 // Color strength tiers (weakest -> strongest), calm -> intense
-export const BLOCK_COLORS: number[] = [
-  0x33cc66, // green   - tier 0 (weakest)
-  0x3388ff, // blue    - tier 1
-  0xffcc00, // yellow  - tier 2
-  0xff8822, // orange  - tier 3
-  0xff3344, // red     - tier 4
-  0x4444cc, // indigo  - tier 5
-  0x9933cc, // violet  - tier 6 (strongest)
-];
+export const BLOCK_COLORS: number[] = TIER_CONTENT.map((tier) => tier.hex);
 // Ball-only strongest color (tier 7). No block uses this -> penetrates all blocks
-export const BALL_COLOR_BLACK = 0x220033;
+export const BALL_COLOR_BLACK = BALL_FINAL_TIER.hex;
 export const BALL_MAX_TIER = 7; // 0-6 = rainbow 7 colors, 7 = black (strongest)
 
 // Indestructible block
@@ -92,35 +86,35 @@ export interface WorldTheme {
 
 export const WORLD_THEMES: WorldTheme[] = [
   {
-    name: "桜花", subtitle: "はるのかぜ", emoji: "🌸",
+    name: WORLD_CONTENT[0].name, subtitle: WORLD_CONTENT[0].subtitle, emoji: WORLD_CONTENT[0].emoji,
     patterns: ["grid", "checkerboard", "diamond"],
     indestructiblePattern: "none", particleShape: "sakura",
     cols: 10, rows: 16, maxColorTier: 1,
     btnColor: "#ff88aa", btnBg: "rgba(255,136,170,0.15)",
   },
   {
-    name: "炎祭", subtitle: "なつのほのお", emoji: "🔥",
+    name: WORLD_CONTENT[1].name, subtitle: WORLD_CONTENT[1].subtitle, emoji: WORLD_CONTENT[1].emoji,
     patterns: ["v-shape", "arrow", "cross"],
     indestructiblePattern: "pillars", particleShape: "flame",
     cols: 11, rows: 20, maxColorTier: 2,
     btnColor: "#ff4400", btnBg: "rgba(255,68,0,0.15)",
   },
   {
-    name: "紅葉", subtitle: "あきのにしき", emoji: "🍁",
+    name: WORLD_CONTENT[2].name, subtitle: WORLD_CONTENT[2].subtitle, emoji: WORLD_CONTENT[2].emoji,
     patterns: ["diamond", "zigzag", "spiral"],
     indestructiblePattern: "corridors", particleShape: "leaf",
     cols: 11, rows: 24, maxColorTier: 4,
     btnColor: "#ff6633", btnBg: "rgba(255,102,51,0.15)",
   },
   {
-    name: "氷雪", subtitle: "ふゆのしずく", emoji: "❄️",
+    name: WORLD_CONTENT[3].name, subtitle: WORLD_CONTENT[3].subtitle, emoji: WORLD_CONTENT[3].emoji,
     patterns: ["tunnel", "cross", "dense-grid"],
     indestructiblePattern: "maze", particleShape: "crystal",
     cols: 12, rows: 28, maxColorTier: 5,
     btnColor: "#88ccff", btnBg: "rgba(136,204,255,0.15)",
   },
   {
-    name: "黄金", subtitle: "きわみのみち", emoji: "👑",
+    name: WORLD_CONTENT[4].name, subtitle: WORLD_CONTENT[4].subtitle, emoji: WORLD_CONTENT[4].emoji,
     patterns: ["ring", "spiral", "dense-grid"],
     indestructiblePattern: "fortress", particleShape: "star",
     cols: 12, rows: 32, maxColorTier: 6,

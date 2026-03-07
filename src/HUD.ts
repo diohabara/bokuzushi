@@ -1,3 +1,7 @@
+import { FEVER_MAX } from "./gameRules";
+import { BALL_FINAL_TIER, TIER_CONTENT } from "./gameContent";
+import { WAVES_PER_WORLD } from "./constants";
+
 export class HUD {
   private scoreEl: HTMLElement;
   private levelEl: HTMLElement;
@@ -7,6 +11,11 @@ export class HUD {
   private comboEl: HTMLElement;
   private bigTextEl: HTMLElement;
   private ballColorEl: HTMLElement;
+  private feverFillEl: HTMLElement;
+  private feverStateEl: HTMLElement;
+  private mobileFeverFillEl: HTMLElement | null;
+  private mobileFeverStateEl: HTMLElement | null;
+  private mobileWaveEl: HTMLElement | null;
   private prevScore = 0;
 
   constructor() {
@@ -18,6 +27,11 @@ export class HUD {
     this.comboEl = document.getElementById("combo")!;
     this.bigTextEl = document.getElementById("big-text")!;
     this.ballColorEl = document.getElementById("hud-ball-color")!;
+    this.feverFillEl = document.getElementById("hud-fever-fill")!;
+    this.feverStateEl = document.getElementById("hud-fever-state")!;
+    this.mobileFeverFillEl = document.getElementById("mobile-fever-fill");
+    this.mobileFeverStateEl = document.getElementById("mobile-fever-state");
+    this.mobileWaveEl = document.getElementById("mobile-wave");
   }
 
   update(
@@ -30,10 +44,13 @@ export class HUD {
   ) {
     this.scoreEl.textContent = String(score);
     this.levelEl.textContent = String(level);
-    const tierNames = ["緑", "青", "黄", "橙", "赤", "藍", "紫", "黒"];
-    this.colorTierEl.textContent =
-      "\u2605".repeat(colorTier + 1) + " " + (tierNames[colorTier] ?? "");
-    this.worldWaveEl.textContent = `${worldName} \u2015 ${wave}`;
+    const tierNames = [...TIER_CONTENT.map((tier) => tier.label), BALL_FINAL_TIER.label];
+    this.colorTierEl.textContent = "\u2605".repeat(colorTier + 1) + " " + (tierNames[colorTier] ?? "");
+    const pips = Array.from({ length: WAVES_PER_WORLD }, (_, index) => (index < wave ? "●" : "○")).join("");
+    this.worldWaveEl.textContent = `${worldName} ${pips}`;
+    if (this.mobileWaveEl) {
+      this.mobileWaveEl.textContent = `${worldName} ${pips}`;
+    }
 
     if (score !== this.prevScore) {
       this.scoreEl.style.transform = "scale(1.5)";
@@ -47,6 +64,18 @@ export class HUD {
   updateBallColor(colorHex: string) {
     this.ballColorEl.style.background = colorHex;
     this.ballColorEl.style.boxShadow = `0 0 12px ${colorHex}, 0 0 24px ${colorHex}`;
+  }
+
+  updateFever(gauge: number, active: boolean) {
+    const ratio = Math.max(0, Math.min(1, gauge / FEVER_MAX));
+    this.feverFillEl.style.transform = `scaleX(${ratio})`;
+    this.feverStateEl.textContent = active ? "FEVER" : ratio >= 0.75 ? "HOT" : "CHARGE";
+    this.feverStateEl.dataset.active = active ? "true" : "false";
+    if (this.mobileFeverFillEl && this.mobileFeverStateEl) {
+      this.mobileFeverFillEl.style.transform = `scaleX(${ratio})`;
+      this.mobileFeverStateEl.textContent = this.feverStateEl.textContent;
+      this.mobileFeverStateEl.dataset.active = this.feverStateEl.dataset.active ?? "false";
+    }
   }
 
   showLevelUp(level: number) {

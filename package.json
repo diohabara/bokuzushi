@@ -7,15 +7,24 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "docs:generate": "tsx scripts/generate-readme.ts",
+    "docs:check": "tsx scripts/generate-readme.ts --check",
+    "ci": "npm run build && npm run test:run && npm run docs:check",
     "deploy": "npm run build && gh-pages -d dist"
   },
   "dependencies": {
     "three": "^0.170.0"
   },
   "devDependencies": {
+    "@types/node": "^24.0.0",
     "@types/three": "^0.170.0",
     "gh-pages": "^6.3.0",
+    "jsdom": "^26.0.0",
+    "tsx": "^4.20.5",
     "typescript": "^5.7.0",
-    "vite": "^6.0.0"
+    "vite": "^6.0.0",
+    "vitest": "^3.2.4"
   }
 }

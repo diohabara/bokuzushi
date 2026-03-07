@@ -5,10 +5,12 @@
     "moduleResolution": "bundler",
     "strict": true,
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "types": ["node"],
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "outDir": "dist",
     "sourceMap": true
   },
-  "include": ["src"]
+  "include": ["src", "scripts", "vitest.config.ts"]
 }

@@ -12,6 +12,8 @@ import {
 export class Ball {
   mesh: THREE.Mesh;
   trail: THREE.Mesh[] = [];
+  prevX = 0;
+  prevY = 0;
   vx = 0;
   vy = 0;
   speed = BALL_SPEED;
@@ -63,11 +65,13 @@ export class Ball {
     this.active = true;
   }
 
-  reset(paddleX: number) {
+  reset(paddleX: number, paddleY = PADDLE_Y) {
     this.active = false;
     this.vx = 0;
     this.vy = 0;
-    this.mesh.position.set(paddleX, PADDLE_Y + 0.5, 0);
+    this.mesh.position.set(paddleX, paddleY + 0.5, 0);
+    this.prevX = paddleX;
+    this.prevY = paddleY + 0.5;
     this.clearTrail();
   }
 
@@ -127,6 +131,8 @@ export class Ball {
 
   update(timeScale = 1) {
     if (!this.active) return false;
+    this.prevX = this.mesh.position.x;
+    this.prevY = this.mesh.position.y;
     this.mesh.position.x += this.vx * timeScale;
     this.mesh.position.y += this.vy * timeScale;
 
