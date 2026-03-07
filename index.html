@@ -369,24 +369,41 @@
       #overlay.hidden { display: none; }
 
       .overlay-stack {
-        width: min(540px, 100%);
+        position: relative;
+        width: min(560px, 100%);
         min-height: calc(100dvh - 40px);
         margin: 0 auto;
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
+        gap: clamp(18px, 3.2vh, 34px);
         padding:
-          max(20px, env(safe-area-inset-top))
+          max(44px, env(safe-area-inset-top))
           0
-          max(24px, env(safe-area-inset-bottom));
+          max(60px, env(safe-area-inset-bottom));
+      }
+
+      .overlay-hero,
+      .overlay-guides {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+      }
+
+      .overlay-hero {
+        gap: 10px;
+      }
+
+      .overlay-guides {
+        gap: 14px;
       }
 
       #overlay h1 {
         font-size: clamp(34px, 8vw, 72px);
         font-weight: 900;
         letter-spacing: clamp(4px, 1.5vw, 8px);
-        margin-bottom: 8px;
         background: linear-gradient(135deg, #ffd700 0%, #ff6b6b 50%, #ff88cc 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
@@ -401,7 +418,6 @@
       }
 
       #overlay .sub {
-        margin-top: 6px;
         font-size: clamp(14px, 3vw, 18px);
         opacity: 0.42;
         letter-spacing: 2px;
@@ -409,8 +425,12 @@
 
       .controls,
       .color-hint {
-        margin-top: 14px;
-        max-width: 540px;
+        width: 100%;
+        max-width: 560px;
+        padding: 14px 18px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 18px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.02));
         font-size: 14px;
         line-height: 1.9;
         letter-spacing: 1px;
@@ -430,7 +450,6 @@
       #world-select {
         display: none;
         width: min(440px, 100%);
-        margin-top: 24px;
         gap: 10px;
         justify-content: center;
         align-items: stretch;
@@ -498,7 +517,14 @@
       #ranking {
         width: 100%;
         max-width: 360px;
-        margin-top: 16px;
+        margin-top: 4px;
+        padding-top: 8px;
+      }
+
+      #ranking-slot {
+        width: 100%;
+        display: flex;
+        justify-content: center;
       }
 
       .ranking-title {
@@ -750,12 +776,23 @@
 
       @media (max-width: 420px) {
         #overlay { padding: 16px; }
+        .overlay-stack {
+          gap: 18px;
+          padding-top: max(28px, env(safe-area-inset-top));
+          padding-bottom: max(40px, env(safe-area-inset-bottom));
+        }
         .world-btn { width: 76px; min-height: 84px; }
         .world-btn-emoji { font-size: 26px; }
         .world-btn-name { font-size: 14px; }
-      .world-btn-sub { font-size: 10px; }
+        .world-btn-sub { font-size: 10px; }
         .world-btn-stage { width: 7px; height: 7px; }
         .controls, .color-hint { font-size: 13px; }
+      }
+
+      @media (max-height: 760px) {
+        .overlay-stack {
+          justify-content: flex-start;
+        }
       }
     </style>
   </head>
@@ -838,9 +875,11 @@
 
     <div id="overlay">
       <div class="overlay-stack">
-        <h1 id="overlay-title">星砕き</h1>
-        <p id="overlay-message">章を選べ</p>
-        <p class="sub" id="overlay-sub">BOKUZUSHI</p>
+        <div class="overlay-hero">
+          <h1 id="overlay-title">星砕き</h1>
+          <p id="overlay-message">章を選べ</p>
+          <p class="sub" id="overlay-sub">BOKUZUSHI</p>
+        </div>
 
         <div id="world-select" class="show">
           <div id="world-select-label">─ 章 選 択 ─</div>
@@ -856,16 +895,20 @@
           章選択
         </button>
 
-        <div class="color-hint">
-          ブロックを壊して段位を上げ<br />
-          <span style="background:#33cc66"></span><span style="background:#3388ff"></span><span style="background:#ffcc00"></span><span style="background:#ff8822"></span><span style="background:#ff3344"></span><span style="background:#4444cc"></span><span style="background:#9933cc"></span><br />
-          強い色で貫通し、沸騰街道で盤面を飲み込め
+        <div class="overlay-guides">
+          <div class="color-hint">
+            ブロックを壊して段位を上げ<br />
+            <span style="background:#33cc66"></span><span style="background:#3388ff"></span><span style="background:#ffcc00"></span><span style="background:#ff8822"></span><span style="background:#ff3344"></span><span style="background:#4444cc"></span><span style="background:#9933cc"></span><br />
+            強い色で貫通し、沸騰街道で盤面を飲み込め
+          </div>
+
+          <div class="controls">
+            マウス / タッチ / ← → で移動。クリック / タップ / Enter / Space で発射。<br />
+            Escape でポーズ。沸点ゲージが満ちると沸騰街道へ入り、その間は得点 2 倍。
+          </div>
         </div>
 
-        <div class="controls">
-          マウス / タッチ / ← → で移動。クリック / タップ / Enter / Space で発射。<br />
-          Escape でポーズ。沸点ゲージが満ちると沸騰街道へ入り、その間は得点 2 倍。
-        </div>
+        <div id="ranking-slot"></div>
       </div>
     </div>
 
