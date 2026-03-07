@@ -290,7 +290,8 @@ export class StarField {
           const t = rows > 1 ? (rows - 1 - row) / (rows - 1) : 0;
           const colorIndex = Math.min(Math.floor(t * (maxTier + 1)), maxTier);
           const color = BLOCK_COLORS[colorIndex];
-          const block = new Block(x, y, color, colorIndex, baseHp, row);
+          const tierHp = baseHp * (1 + colorIndex);
+          const block = new Block(x, y, color, colorIndex, tierHp, row);
           this.blocks.push(block);
           this.scene.add(block.mesh);
         }

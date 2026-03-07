@@ -4,27 +4,6 @@ import {
   INDESTRUCTIBLE_COLOR, INDESTRUCTIBLE_EMISSIVE, INDESTRUCTIBLE_COLOR_INDEX,
 } from "./constants";
 
-// Shared HP number textures to avoid creating one canvas per block
-const hpTextureCache = new Map<number, THREE.Texture>();
-function getHpTexture(hp: number): THREE.Texture {
-  if (hpTextureCache.has(hp)) return hpTextureCache.get(hp)!;
-  const canvas = document.createElement("canvas");
-  canvas.width = 48;
-  canvas.height = 24;
-  const ctx = canvas.getContext("2d")!;
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 20px sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.strokeStyle = "#000000";
-  ctx.lineWidth = 3;
-  ctx.strokeText(String(hp), 24, 12);
-  ctx.fillText(String(hp), 24, 12);
-  const texture = new THREE.CanvasTexture(canvas);
-  hpTextureCache.set(hp, texture);
-  return texture;
-}
-
 export class Block {
   mesh: THREE.Mesh;
   alive = true;
@@ -35,7 +14,6 @@ export class Block {
   indestructible: boolean;
   private pulsePhase = Math.random() * Math.PI * 2;
   private edgeGlow: THREE.LineSegments | null = null;
-  private hpSprite: THREE.Sprite | null = null;
   private hpBarBg: THREE.Mesh | null = null;
   private hpBarFg: THREE.Mesh | null = null;
 
@@ -79,62 +57,34 @@ export class Block {
     this.mesh.position.set(x, y, 0);
 
     if (!this.indestructible) {
-      this.createHpDisplay();
+      this.createHpBar();
     }
   }
 
-  private createHpDisplay() {
-    // HP number sprite
-    const spriteMat = new THREE.SpriteMaterial({
-      map: getHpTexture(this.hp),
-      transparent: true,
-    });
-    this.hpSprite = new THREE.Sprite(spriteMat);
-    this.hpSprite.scale.set(0.45, 0.22, 1);
-    this.hpSprite.position.set(0, 0, 0.2);
-    this.mesh.add(this.hpSprite);
-
-    // HP bar (hidden when full)
-    const barWidth = BLOCK_WIDTH * 0.8;
-    const barHeight = 0.06;
+  private createHpBar() {
+    const barWidth = BLOCK_WIDTH * 0.85;
+    const barHeight = 0.07;
 
     const bgGeo = new THREE.PlaneGeometry(barWidth, barHeight);
     const bgMat = new THREE.MeshBasicMaterial({
       color: 0x000000, transparent: true, opacity: 0.5,
     });
     this.hpBarBg = new THREE.Mesh(bgGeo, bgMat);
-    this.hpBarBg.position.set(0, -BLOCK_HEIGHT / 2 - 0.05, 0.1);
-    this.hpBarBg.visible = false;
+    this.hpBarBg.position.set(0, -BLOCK_HEIGHT / 2 - 0.06, 0.1);
     this.mesh.add(this.hpBarBg);
 
     const fgGeo = new THREE.PlaneGeometry(barWidth, barHeight);
     const fgMat = new THREE.MeshBasicMaterial({ color: 0x44ff44 });
     this.hpBarFg = new THREE.Mesh(fgGeo, fgMat);
-    this.hpBarFg.position.set(0, -BLOCK_HEIGHT / 2 - 0.05, 0.11);
-    this.hpBarFg.visible = false;
+    this.hpBarFg.position.set(0, -BLOCK_HEIGHT / 2 - 0.06, 0.11);
     this.mesh.add(this.hpBarFg);
   }
 
-  private updateHpDisplay() {
-    // Update HP number
-    if (this.hpSprite) {
-      const spriteMat = this.hpSprite.material as THREE.SpriteMaterial;
-      spriteMat.map = getHpTexture(this.hp);
-      spriteMat.needsUpdate = true;
-    }
-
-    // Update HP bar (show only when damaged)
+  private updateHpBar() {
     if (!this.hpBarBg || !this.hpBarFg) return;
-    if (this.hp >= this.maxHp) {
-      this.hpBarBg.visible = false;
-      this.hpBarFg.visible = false;
-      return;
-    }
-    this.hpBarBg.visible = true;
-    this.hpBarFg.visible = true;
     const ratio = Math.max(0, this.hp / this.maxHp);
     this.hpBarFg.scale.x = ratio;
-    const barWidth = BLOCK_WIDTH * 0.8;
+    const barWidth = BLOCK_WIDTH * 0.85;
     this.hpBarFg.position.x = -(barWidth * (1 - ratio)) / 2;
 
     const fgMat = this.hpBarFg.material as THREE.MeshBasicMaterial;
@@ -170,7 +120,7 @@ export class Block {
       this.destroy();
       return true;
     }
-    this.updateHpDisplay();
+    this.updateHpBar();
     // Hit flash - bright white flash
     const mat = this.mesh.material as THREE.MeshStandardMaterial;
     mat.emissiveIntensity = 2.0;
