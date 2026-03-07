@@ -51,8 +51,10 @@ https://diohabara.github.io/bokuzushi/
 | `npm install` | 依存関係をインストール |
 | `npm run dev` | 開発サーバーを起動 |
 | `npm run build` | TypeScript ビルドと Vite ビルドを実行 |
+| `npm run test` | Vitest をウォッチ実行 |
 | `npm run test:run` | Vitest を一回実行 |
 | `npm run docs:generate` | README の生成ブロックを更新 |
+| `npm run docs:check` | README の生成ブロック差分を検査 |
 | `npm run ci` | build / test / docs:check をまとめて実行 |
 
 ## 操作
@@ -64,7 +66,7 @@ https://diohabara.github.io/bokuzushi/
 
 ## 自動ドキュメント更新
 
-README の生成対象は `npm run docs:generate` で更新され、CI では `tsx scripts/generate-readme.ts --check` を実行して更新漏れを検出する。
+README の生成対象は `npm run docs:generate` で更新され、CI では `node --import tsx ./scripts/generate-readme.ts --check` を実行して更新漏れを検出する。
 <!-- GENERATED_COMMANDS:end -->
 
 ## デプロイ

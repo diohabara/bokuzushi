@@ -1,14 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyBonusHits,
   applyBlockHit,
   chargeFever,
   createProgressionState,
   getAttackPower,
   getBounceAxis,
+  getComboCelebrationTier,
+  getScoreMultiplier,
   mergeRanking,
   resolveBlockHit,
   tickTimers,
 } from "./gameRules";
+import { BALL_MAX_TIER } from "./constants";
 
 describe("resolveBlockHit", () => {
   it("貫通条件なら即破壊して反射しない", () => {
@@ -37,6 +41,21 @@ describe("resolveBlockHit", () => {
     expect(result.destroysImmediately).toBe(false);
     expect(result.shouldBounce).toBe(true);
     expect(result.damage).toBe(2);
+  });
+
+  it("破壊不能ブロックは色優位でも即破壊しない", () => {
+    const result = resolveBlockHit({
+      level: 6,
+      ballColorIndex: 5,
+      blockColorIndex: 1,
+      blockMaxHp: 9,
+      indestructible: true,
+    });
+
+    expect(result.relation).toBe("stronger");
+    expect(result.destroysImmediately).toBe(false);
+    expect(result.shouldBounce).toBe(true);
+    expect(result.damage).toBe(getAttackPower(6, 5));
   });
 });
 
@@ -69,6 +88,33 @@ describe("progression", () => {
     expect(result.state.feverGauge).toBe(100);
   });
 
+  it("ボーナスヒットで複数回のレベルアップと繰り越しを処理する", () => {
+    const result = applyBonusHits(createProgressionState(), 90);
+
+    expect(result.state.level).toBe(3);
+    expect(result.state.ballColorIndex).toBe(2);
+    expect(result.state.hitCount).toBe(0);
+    expect(result.state.nextLevelHits).toBe(75);
+    expect(result.leveledUp).toEqual([2, 3]);
+  });
+
+  it("最大ティア到達後はそれ以上色が上がらない", () => {
+    const maxed = {
+      ...createProgressionState(),
+      level: 8,
+      hitCount: 0,
+      nextLevelHits: 175,
+      ballColorIndex: BALL_MAX_TIER,
+    };
+
+    const next = applyBonusHits(maxed, 200).state;
+
+    expect(next.ballColorIndex).toBe(BALL_MAX_TIER);
+    expect(next.level).toBe(8);
+    expect(next.hitCount).toBe(200);
+    expect(next.nextLevelHits).toBe(175);
+  });
+
   it("タイマー更新で combo と fever が切れる", () => {
     const state = {
       ...createProgressionState(),
@@ -84,6 +130,22 @@ describe("progression", () => {
     expect(next.combo).toBe(0);
     expect(next.feverActive).toBe(false);
     expect(next.feverGauge).toBe(0);
+  });
+
+  it("Fever 中の追加入力では再発火せず満タン維持する", () => {
+    const active = {
+      ...createProgressionState(),
+      feverActive: true,
+      feverGauge: 80,
+      feverTimer: 4,
+    };
+
+    const result = chargeFever(active, 25);
+
+    expect(result.feverTriggered).toBe(false);
+    expect(result.state.feverActive).toBe(true);
+    expect(result.state.feverGauge).toBe(100);
+    expect(result.state.feverTimer).toBe(4);
   });
 });
 
@@ -137,5 +199,26 @@ describe("mergeRanking", () => {
 
     expect(next).toHaveLength(10);
     expect(next[0]?.score).toBe(1200);
+  });
+});
+
+describe("combo and score helpers", () => {
+  it("コンボ閾値ごとに演出ティアを返す", () => {
+    expect(getComboCelebrationTier(2)).toBeNull();
+    expect(getComboCelebrationTier(3)).toBe("minor");
+    expect(getComboCelebrationTier(5)).toBe("major");
+    expect(getComboCelebrationTier(8)).toBe("major");
+    expect(getComboCelebrationTier(12)).toBe("jackpot");
+    expect(getComboCelebrationTier(20)).toBe("jackpot");
+  });
+
+  it("Fever 中だけスコア倍率が 2 倍になる", () => {
+    expect(getScoreMultiplier(createProgressionState())).toBe(1);
+    expect(
+      getScoreMultiplier({
+        ...createProgressionState(),
+        feverActive: true,
+      })
+    ).toBe(2);
   });
 });

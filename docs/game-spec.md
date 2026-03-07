@@ -8,6 +8,14 @@
 - モバイルでも視認性と操作性を維持する。
 - README と実装のズレを減らすため、数式と状態遷移をここに集約する。
 
+## 変更時の優先順位
+
+1. 数式・状態遷移・しきい値をこの文書と `src/gameRules.ts` で更新する。
+2. README の生成元である `src/gameContent.ts` と `scripts/generate-readme.ts` を必要に応じて更新する。
+3. `npm run test:run` と `npm run docs:check` を通してから README を確認する。
+
+`docs:generate` / `docs:check` は `node --import tsx` 経由で実行し、制限付き環境でも `tsx` CLI の IPC ソケットに依存しないようにする。
+
 ## コアループ
 
 1. パドルでボールを返す。
@@ -80,6 +88,20 @@
 - `waveclear -> playing`
 - `worldclear -> playing | start`
 - `gameover -> start | playing`
+
+## テスト観点
+
+- `src/gameRules.test.ts`
+  - 色優位 / 同色以下 / 破壊不能ブロックの解決
+  - レベルアップ、ボーナスヒット、最大ティア到達後の繰り越し
+  - Fever 発火、継続中チャージ、タイマー切れ
+  - 反射軸判定、ランキング整列、コンボ演出ティア、得点倍率
+- `src/HUD.test.ts`
+  - Fever 表示、モバイル HUD、コンボ文言とサイズ
+- `src/Ball.test.ts`
+  - 初回射出角の禁止帯回避
+- `src/StarField.test.ts`
+  - 星配置の深さ、通路幅、防御補正
 
 ## 一貫性チェック
 

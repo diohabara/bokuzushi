@@ -9,8 +9,8 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",
-    "docs:generate": "tsx scripts/generate-readme.ts",
-    "docs:check": "tsx scripts/generate-readme.ts --check",
+    "docs:generate": "node --import tsx ./scripts/generate-readme.ts",
+    "docs:check": "node --import tsx ./scripts/generate-readme.ts --check",
     "ci": "npm run build && npm run test:run && npm run docs:check",
     "deploy": "npm run build && gh-pages -d dist"
   },
