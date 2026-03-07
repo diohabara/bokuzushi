@@ -55,6 +55,18 @@
         -webkit-tap-highlight-color: transparent;
       }
 
+      body,
+      #hud,
+      #hud *,
+      #overlay,
+      #overlay *,
+      #pause-overlay,
+      #pause-overlay * {
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+      }
+
       body::before,
       body::after {
         content: "";
@@ -82,6 +94,13 @@
       }
 
       button, input { font: inherit; }
+      button,
+      .world-btn,
+      .action-button,
+      .toggle-button,
+      .utility-button {
+        touch-action: manipulation;
+      }
       button:focus-visible {
         outline: 3px solid rgba(255, 216, 107, 0.9);
         outline-offset: 3px;
