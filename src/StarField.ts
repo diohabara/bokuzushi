@@ -307,9 +307,10 @@ export class StarField {
           const glow = block.getEdgeGlow();
           if (glow) this.scene.add(glow);
         } else {
-          // Normal block: color tier by distance from bottom
-          const distFromBottom = rows - 1 - row;
-          const colorIndex = Math.min(distFromBottom, BLOCK_COLORS.length - 1);
+          // Normal block: color tier spread across rows within world's tier limit
+          const maxTier = theme.maxColorTier;
+          const t = rows > 1 ? (rows - 1 - row) / (rows - 1) : 0;
+          const colorIndex = Math.min(Math.floor(t * (maxTier + 1)), maxTier);
           const color = BLOCK_COLORS[colorIndex];
           const block = new Block(x, y, color, colorIndex, baseHp, row);
           this.blocks.push(block);

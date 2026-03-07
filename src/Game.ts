@@ -557,14 +557,25 @@ export class Game {
     }
   }
 
+  private getWorldMaxBallTier(): number {
+    const theme = WORLD_THEMES[(this.world - 1) % WORLD_THEMES.length];
+    // Ball can go 1 tier above the world's max block tier (to penetrate all)
+    return Math.min(theme.maxColorTier + 1, BALL_MAX_TIER);
+  }
+
   private onBlockHit() {
     this.hitCount++;
     if (this.hitCount >= this.nextLevelHits) {
+      const maxTier = this.getWorldMaxBallTier();
+      if (this.ball.colorIndex >= maxTier) {
+        // Already at max for this world, don't level up
+        return;
+      }
       this.level++;
       this.hitCount = 0;
       this.nextLevelHits = HITS_BASE + (this.level - 1) * HITS_GROWTH;
       // Promote ball color to next tier
-      this.ball.colorIndex = Math.min(this.ball.colorIndex + 1, BALL_MAX_TIER);
+      this.ball.colorIndex = Math.min(this.ball.colorIndex + 1, maxTier);
       this.ball.applyColor();
       this.ball.updateGlow();
       this.hud.updateBallColor(this.getBallColorHex());
