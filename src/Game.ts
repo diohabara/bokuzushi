@@ -5,6 +5,7 @@ import { StarField } from "./StarField";
 import { HUD } from "./HUD";
 import { Particles } from "./Particles";
 import { WorldBackground } from "./WorldBackground";
+import { COMBO_CELEBRATION_COPY, FEVER_TRIGGER_COPY } from "./gameContent";
 import {
   GAME_WIDTH,
   GAME_HEIGHT,
@@ -722,7 +723,7 @@ export class Game {
     };
   }
 
-  private pick<T>(items: T[]): T {
+  private pick<T>(items: readonly T[]): T {
     return items[Math.floor(Math.random() * items.length)];
   }
 
@@ -751,7 +752,7 @@ export class Game {
     }
 
     if (result.feverTriggered) {
-      this.hud.showBigText("FEVER RUSH", "kakuhen");
+      this.hud.showBigText(this.pick(FEVER_TRIGGER_COPY), "kakuhen");
       this.multiFlash(10, 55, ["#ffd700", "#ff8844", "#ff4477", "#ffffff"]);
       this.rainbowFlash(4);
       this.startSlowMotion(0.35);
@@ -770,7 +771,7 @@ export class Game {
     this.progression.combo += 1;
     this.progression.comboTimer = 2;
 
-    if (this.progression.combo >= 2) {
+    if (this.progression.combo >= 1) {
       this.hud.showCombo(this.progression.combo);
     }
 
@@ -783,26 +784,40 @@ export class Game {
     if (!tier) return;
 
     if (combo === COMBO_ATSU) {
-      this.hud.showBigText(this.pick(["アツい!!", "チャンス!", "来てる!"]), "atsu");
+      this.hud.showBigText(this.pick(COMBO_CELEBRATION_COPY.atsu), "atsu");
       this.multiFlash(3, 90, ["#ff8800", "#ffff00", "#ff4400"]);
       this.shake(0.35, 0.25);
       this.screenZoom(1.04);
     } else if (combo === COMBO_GEKIATSU) {
-      this.hud.showBigText(this.pick(["激アツ!!", "魚群出現!!", "赤保留!!"]), "gekiatsu");
+      this.hud.showBigText(this.pick(COMBO_CELEBRATION_COPY.gekiatsu), "gekiatsu");
       this.multiFlash(5, 80, ["#ff0000", "#ff8800", "#ffff00"]);
       this.shake(0.55, 0.35);
       this.rainbowFlash(1.8);
       this.startSlowMotion(0.25);
       this.screenZoom(1.08);
     } else if (combo === COMBO_KAKUHEN) {
-      this.hud.showBigText(this.pick(["確変突入!!", "金保留!!", "確定演出!!"]), "kakuhen");
+      this.hud.showBigText(this.pick(COMBO_CELEBRATION_COPY.kakuhen), "kakuhen");
       this.multiFlash(8, 65, ["#ff0000", "#ff8800", "#ffff00", "#00ff00", "#0088ff"]);
       this.shake(0.7, 0.45);
       this.rainbowFlash(3);
       this.startSlowMotion(0.35);
       this.screenZoom(1.1);
-    } else if (combo === COMBO_OOATARI || combo === COMBO_CHO_GEKIATSU || combo >= COMBO_FEVER) {
-      this.hud.showBigText(this.pick(["大当たり!!!", "全回転!!!!", "∞ FEVER ∞"]), "kakuhen");
+    } else if (combo === COMBO_OOATARI) {
+      this.hud.showBigText(this.pick(COMBO_CELEBRATION_COPY.ooatari), "kakuhen");
+      this.multiFlash(tier === "jackpot" ? 14 : 10, 45, ["#ff0000", "#ffffff", "#ff8800", "#ffff00", "#00ff00", "#0088ff", "#ff00ff"]);
+      this.shake(1.0, 0.7);
+      this.rainbowFlash(5);
+      this.startSlowMotion(0.5);
+      this.screenZoom(1.15);
+    } else if (combo === COMBO_CHO_GEKIATSU) {
+      this.hud.showBigText(this.pick(COMBO_CELEBRATION_COPY.choGekiatsu), "kakuhen");
+      this.multiFlash(tier === "jackpot" ? 14 : 10, 45, ["#ff0000", "#ffffff", "#ff8800", "#ffff00", "#00ff00", "#0088ff", "#ff00ff"]);
+      this.shake(1.0, 0.7);
+      this.rainbowFlash(5);
+      this.startSlowMotion(0.5);
+      this.screenZoom(1.15);
+    } else if (combo >= COMBO_FEVER) {
+      this.hud.showBigText(this.pick(COMBO_CELEBRATION_COPY.fever), "kakuhen");
       this.multiFlash(tier === "jackpot" ? 14 : 10, 45, ["#ff0000", "#ffffff", "#ff8800", "#ffff00", "#00ff00", "#0088ff", "#ff00ff"]);
       this.shake(1.0, 0.7);
       this.rainbowFlash(5);

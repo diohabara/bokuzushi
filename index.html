@@ -574,7 +574,7 @@
 
       #combo {
         font-family: "Orbitron", sans-serif;
-        font-size: clamp(24px, 6vw, 48px);
+        font-size: var(--combo-font-size, clamp(28px, 6vw, 48px));
         font-weight: 900;
         color: #ff4444;
         text-shadow: 0 0 30px #ff0000, 0 0 60px #ff4400, 0 0 100px #ff0000;
@@ -755,12 +755,12 @@
           <span class="hud-value" id="hud-level">1</span>
         </div>
         <div class="hud-item fever-top">
-          <span class="hud-label">FEVER</span>
+          <span class="hud-label">沸点</span>
           <div class="fever-meter">
             <div class="fever-track">
               <div class="fever-fill" id="hud-fever-fill"></div>
             </div>
-            <span class="fever-state" id="hud-fever-state" data-active="false">CHARGE</span>
+            <span class="fever-state" id="hud-fever-state" data-active="false">仕込み</span>
           </div>
         </div>
         <div class="hud-item">
@@ -782,7 +782,7 @@
         <div class="fever-track">
           <div class="fever-fill" id="mobile-fever-fill"></div>
         </div>
-        <span class="fever-state" id="mobile-fever-state" data-active="false">CHARGE</span>
+        <span class="fever-state" id="mobile-fever-state" data-active="false">仕込み</span>
       </div>
     </div>
 
@@ -839,12 +839,12 @@
       <div class="color-hint">
         ブロックを壊して段位を上げ<br />
         <span style="background:#33cc66"></span><span style="background:#3388ff"></span><span style="background:#ffcc00"></span><span style="background:#ff8822"></span><span style="background:#ff3344"></span><span style="background:#4444cc"></span><span style="background:#9933cc"></span><br />
-        強い色で貫通し、FEVER で盤面を飲み込め
+        強い色で貫通し、沸騰街道で盤面を飲み込め
       </div>
 
       <div class="controls">
         マウス / タッチ / ← → で移動。クリック / タップ / Enter / Space で発射。<br />
-        Escape でポーズ。FEVER はゲージ満タンで発動し、その間は得点 2 倍。
+        Escape でポーズ。沸点ゲージが満ちると沸騰街道へ入り、その間は得点 2 倍。
       </div>
     </div>
 

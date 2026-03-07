@@ -28,7 +28,7 @@ describe("HUD", () => {
     const state = document.getElementById("hud-fever-state");
 
     expect(fill?.style.transform).toBe("scaleX(0.5)");
-    expect(state?.textContent).toBe("CHARGE");
+    expect(state?.textContent).toBe("仕込み");
   });
 
   it("Fever 中は状態ラベルを切り替える", () => {
@@ -36,8 +36,30 @@ describe("HUD", () => {
     hud.updateFever(100, true);
 
     const state = document.getElementById("hud-fever-state");
-    expect(state?.textContent).toBe("FEVER");
+    expect(state?.textContent).toBe("沸騰");
     expect(state?.dataset.active).toBe("true");
+  });
+
+  it("最小コンボでも連ツキ表示を出す", () => {
+    const hud = new HUD();
+    hud.showCombo(1);
+
+    const combo = document.getElementById("combo");
+    expect(combo?.textContent).toBe("1連ツキ!!");
+    expect(combo?.style.getPropertyValue("--combo-font-size")).toBe("clamp(28px, 6vw, 28px)");
+  });
+
+  it("コンボ数に応じて連ツキ表示を大きくする", () => {
+    const hud = new HUD();
+    hud.showCombo(1);
+    const small = document.getElementById("combo")?.style.getPropertyValue("--combo-font-size");
+
+    hud.showCombo(7);
+    const large = document.getElementById("combo")?.style.getPropertyValue("--combo-font-size");
+
+    expect(large).not.toBe(small);
+    expect(document.getElementById("combo")?.textContent).toBe("7連ツキ!!");
+    expect(large).toBe("clamp(28px, 9.6vw, 52px)");
   });
 
   it("モバイルドックにも FEVER と wave を反映する", () => {

@@ -1,5 +1,10 @@
 import { FEVER_MAX } from "./gameRules";
-import { BALL_FINAL_TIER, TIER_CONTENT } from "./gameContent";
+import {
+  BALL_FINAL_TIER,
+  COMBO_LABEL_SUFFIX,
+  FEVER_STATE_COPY,
+  TIER_CONTENT,
+} from "./gameContent";
 import { WAVES_PER_WORLD } from "./constants";
 
 export class HUD {
@@ -68,7 +73,11 @@ export class HUD {
   updateFever(gauge: number, active: boolean) {
     const ratio = Math.max(0, Math.min(1, gauge / FEVER_MAX));
     this.feverFillEl.style.transform = `scaleX(${ratio})`;
-    this.feverStateEl.textContent = active ? "FEVER" : ratio >= 0.75 ? "HOT" : "CHARGE";
+    this.feverStateEl.textContent = active
+      ? FEVER_STATE_COPY.active
+      : ratio >= 0.75
+        ? FEVER_STATE_COPY.hot
+        : FEVER_STATE_COPY.charge;
     this.feverStateEl.dataset.active = active ? "true" : "false";
     if (this.mobileFeverFillEl && this.mobileFeverStateEl) {
       this.mobileFeverFillEl.style.transform = `scaleX(${ratio})`;
@@ -85,7 +94,13 @@ export class HUD {
   }
 
   showCombo(count: number) {
-    this.comboEl.textContent = `${count} COMBO!!`;
+    this.comboEl.textContent = `${count}${COMBO_LABEL_SUFFIX}`;
+    const minSize = 28;
+    const maxSize = 96;
+    const growth = Math.min(count - 1, 12) * 4;
+    const maxFontSize = Math.min(maxSize, minSize + growth);
+    const viewportSize = Math.min(14, 6 + Math.min(count - 1, 12) * 0.6);
+    this.comboEl.style.setProperty("--combo-font-size", `clamp(${minSize}px, ${viewportSize}vw, ${maxFontSize}px)`);
     this.comboEl.classList.remove("show");
     void this.comboEl.offsetWidth;
     this.comboEl.classList.add("show");
