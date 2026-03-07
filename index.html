@@ -36,9 +36,12 @@
       }
 
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      html, body { width: 100%; height: 100%; }
+      html, body {
+        width: 100%;
+        min-height: 100%;
+      }
       body {
-        overflow: hidden;
+        overflow-x: hidden;
         background:
           radial-gradient(circle at 20% 14%, rgba(255, 132, 66, 0.24), transparent 24%),
           radial-gradient(circle at 78% 18%, rgba(77, 163, 255, 0.18), transparent 18%),
@@ -48,7 +51,6 @@
         font-family: var(--display-font);
         -webkit-user-select: none;
         user-select: none;
-        touch-action: manipulation;
         -webkit-touch-callout: none;
         -webkit-tap-highlight-color: transparent;
       }
@@ -90,6 +92,7 @@
         width: 100vw;
         height: 100vh;
         height: 100dvh;
+        touch-action: none;
       }
 
       #hud {
@@ -414,6 +417,7 @@
         overflow-y: auto;
         overscroll-behavior: contain;
         -webkit-overflow-scrolling: touch;
+        touch-action: pan-y pinch-zoom;
         background:
           radial-gradient(circle at 18% 16%, rgba(255, 120, 66, 0.14), transparent 22%),
           radial-gradient(circle at 84% 18%, rgba(111, 225, 255, 0.1), transparent 18%),
