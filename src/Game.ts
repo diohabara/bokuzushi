@@ -80,6 +80,7 @@ export class Game {
   private overlayTitle: HTMLElement;
   private overlayMessage: HTMLElement;
   private overlaySub: HTMLElement;
+  private overlayPanelKicker: HTMLElement;
   private overlayActionBtn: HTMLButtonElement;
   private overlaySecondaryActionBtn: HTMLButtonElement;
   private flashEl: HTMLElement;
@@ -143,6 +144,7 @@ export class Game {
     this.overlayTitle = document.getElementById("overlay-title")!;
     this.overlayMessage = document.getElementById("overlay-message")!;
     this.overlaySub = document.getElementById("overlay-sub")!;
+    this.overlayPanelKicker = document.getElementById("overlay-panel-kicker")!;
     this.overlayActionBtn = document.getElementById("overlay-action") as HTMLButtonElement;
     this.overlaySecondaryActionBtn = document.getElementById("overlay-secondary-action") as HTMLButtonElement;
     this.flashEl = document.getElementById("flash")!;
@@ -456,7 +458,7 @@ export class Game {
     this.pauseOverlay.setAttribute("aria-hidden", "true");
     this.worldSelectEl.classList.add("show");
     this.updateWorldButtons();
-    this.showOverlay("星砕き", "章を選べ", "BOKUZUSHI", null, null);
+    this.showOverlay("星砕き", "座る章を選べ", "流れが良い席から入れ", null, null);
     this.showRanking();
   }
 
@@ -469,12 +471,17 @@ export class Game {
     secondaryLabel: string | null = null,
     secondaryHandler: (() => void) | null = null
   ) {
+    const isStartScreen = !primaryHandler && !secondaryHandler;
     const ranking = document.getElementById("ranking");
     if (ranking) ranking.style.display = primaryHandler || secondaryHandler ? "none" : "block";
     this.pauseBtn.classList.toggle("hidden", this.state !== "playing");
     if (primaryHandler || secondaryHandler) {
       this.worldSelectEl.classList.remove("show");
     }
+    this.overlay.dataset.mode = isStartScreen ? "start" : "interstitial";
+    this.overlayPanelKicker.textContent = isStartScreen
+      ? "解放中の章 / OPEN BOARD"
+      : "次の一手 / PUSH TO ADVANCE";
     this.overlayTitle.textContent = title;
     this.overlayMessage.textContent = message;
     this.overlaySub.textContent = sub;
@@ -1002,7 +1009,7 @@ export class Game {
           this.showOverlay(
             "全章制覇",
             `得点: ${this.score}`,
-            `${themeName} を超えて、ハイスコアへ`,
+            `${themeName} を抜けても、まだハイスコアが残ってる`,
             "ハイスコアへ",
             () => this.showStartScreen(),
             "章選択",
@@ -1012,7 +1019,7 @@ export class Game {
           this.showOverlay(
             `${themeName} 制覇!!`,
             `得点: ${this.score}`,
-            "次の章へ進む",
+            "次の島がもう光ってる",
             "次の章へ",
             () => this.nextWorld(),
             "章選択",
@@ -1024,10 +1031,10 @@ export class Game {
       this.state = "waveclear";
       setTimeout(() => {
         this.showOverlay(
-          `ステージ ${this.wave} クリア`,
+          `第 ${this.wave} 面 抜け`,
           `得点: ${this.score}`,
-          "次のステージへ",
-          "次のステージへ",
+          "まだ席を立つには早い",
+          "次の面へ",
           () => this.nextWave(),
           "章選択",
           () => this.showStartScreen()
@@ -1142,7 +1149,7 @@ export class Game {
           this.showOverlay(
             "ゲームオーバー",
             `得点: ${this.score}`,
-            "流れを切り替える",
+            "座り直して、流れを戻す",
             "もう一度",
             () => this.startNewGame(this.world),
             "章選択",
