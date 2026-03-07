@@ -20,6 +20,10 @@ interface Particle {
   rotSpeed: number;
 }
 
+const PARTICLE_BASE_Z = -0.45;
+const PARTICLE_MIN_Z = -1.1;
+const PARTICLE_MAX_Z = -0.12;
+
 function createGeometries(
   shape: WorldTheme["particleShape"]
 ): [THREE.BufferGeometry, THREE.BufferGeometry, THREE.BufferGeometry] {
@@ -89,19 +93,29 @@ export class Particles {
     [this.geo, this.bigGeo, this.hugeGeo] = createGeometries(theme.particleShape);
   }
 
+  private createMaterial(color: number, opacity: number) {
+    return new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity,
+      depthWrite: false,
+    });
+  }
+
+  private primeMesh(mesh: THREE.Mesh, x: number, y: number, z = PARTICLE_BASE_Z) {
+    mesh.position.set(x, y, z);
+    mesh.renderOrder = 1;
+    this.scene.add(mesh);
+  }
+
   // Block hit (no destroy) - still very flashy
   hitBurst(x: number, y: number, color: number) {
     for (let i = 0; i < HIT_PARTICLE_COUNT; i++) {
-      const mat = new THREE.MeshBasicMaterial({
-        color,
-        transparent: true,
-        opacity: 1.0,
-      });
+      const mat = this.createMaterial(color, 0.9);
       const mesh = new THREE.Mesh(this.geo, mat);
       const scale = 0.8 + Math.random() * 1.5;
-      mesh.position.set(x, y, 0);
+      this.primeMesh(mesh, x, y, PARTICLE_BASE_Z - Math.random() * 0.12);
       mesh.scale.setScalar(scale);
-      this.scene.add(mesh);
 
       const angle = (Math.PI * 2 * i) / HIT_PARTICLE_COUNT + Math.random() * 0.5;
       const speed = HIT_PARTICLE_SPEED * (0.5 + Math.random() * 1.5);
@@ -123,17 +137,17 @@ export class Particles {
   burst(x: number, y: number, color: number) {
     // Main color burst
     for (let i = 0; i < PARTICLE_COUNT; i++) {
-      const mat = new THREE.MeshBasicMaterial({
-        color,
-        transparent: true,
-        opacity: 1,
-      });
+      const mat = this.createMaterial(color, 0.9);
       const isHuge = i < PARTICLE_COUNT * 0.15;
       const mesh = new THREE.Mesh(isHuge ? this.hugeGeo : this.bigGeo, mat);
       const scale = 0.8 + Math.random() * 2.0;
-      mesh.position.set(x + (Math.random() - 0.5) * 0.3, y + (Math.random() - 0.5) * 0.3, 0);
+      this.primeMesh(
+        mesh,
+        x + (Math.random() - 0.5) * 0.3,
+        y + (Math.random() - 0.5) * 0.3,
+        PARTICLE_BASE_Z - Math.random() * 0.2
+      );
       mesh.scale.setScalar(scale);
-      this.scene.add(mesh);
 
       const angle = (Math.PI * 2 * i) / PARTICLE_COUNT + Math.random() * 0.4;
       const speed = PARTICLE_SPEED * (0.5 + Math.random() * 1.5);
@@ -152,14 +166,9 @@ export class Particles {
 
     // White sparkle ring
     for (let i = 0; i < 30; i++) {
-      const mat = new THREE.MeshBasicMaterial({
-        color: 0xffffff,
-        transparent: true,
-        opacity: 1,
-      });
+      const mat = this.createMaterial(0xffffff, 0.85);
       const mesh = new THREE.Mesh(this.geo, mat);
-      mesh.position.set(x, y, 0);
-      this.scene.add(mesh);
+      this.primeMesh(mesh, x, y, PARTICLE_BASE_Z - 0.08);
 
       const angle = (Math.PI * 2 * i) / 30;
       const speed = PARTICLE_SPEED * 2.0;
@@ -180,14 +189,9 @@ export class Particles {
   // Non-matching block bounce - small spark effect
   bounceSpark(x: number, y: number) {
     for (let i = 0; i < 8; i++) {
-      const mat = new THREE.MeshBasicMaterial({
-        color: 0x888888,
-        transparent: true,
-        opacity: 0.6,
-      });
+      const mat = this.createMaterial(0x888888, 0.45);
       const mesh = new THREE.Mesh(this.geo, mat);
-      mesh.position.set(x, y, 0);
-      this.scene.add(mesh);
+      this.primeMesh(mesh, x, y, PARTICLE_BASE_Z - 0.04);
 
       const angle = Math.random() * Math.PI * 2;
       const speed = 0.1 + Math.random() * 0.1;
@@ -211,17 +215,17 @@ export class Particles {
     const count = PARTICLE_COUNT * 5;
     for (let i = 0; i < count; i++) {
       const color = colors[i % colors.length];
-      const mat = new THREE.MeshBasicMaterial({
-        color,
-        transparent: true,
-        opacity: 1,
-      });
+      const mat = this.createMaterial(color, 0.88);
       const isHuge = i < count * 0.2;
       const mesh = new THREE.Mesh(isHuge ? this.hugeGeo : this.bigGeo, mat);
       const scale = 1 + Math.random() * 3.0;
-      mesh.position.set(x + (Math.random() - 0.5) * 0.5, y + (Math.random() - 0.5) * 0.5, 0);
+      this.primeMesh(
+        mesh,
+        x + (Math.random() - 0.5) * 0.5,
+        y + (Math.random() - 0.5) * 0.5,
+        PARTICLE_BASE_Z - Math.random() * 0.35
+      );
       mesh.scale.setScalar(scale);
-      this.scene.add(mesh);
 
       const angle = (Math.PI * 2 * i) / count + Math.random() * 0.3;
       const speed = PARTICLE_SPEED * (0.8 + Math.random() * 2.5);
@@ -242,16 +246,11 @@ export class Particles {
   // Color change burst - when ball hits paddle
   colorChangeBurst(x: number, y: number, color: number) {
     for (let i = 0; i < 40; i++) {
-      const mat = new THREE.MeshBasicMaterial({
-        color,
-        transparent: true,
-        opacity: 1,
-      });
+      const mat = this.createMaterial(color, 0.85);
       const mesh = new THREE.Mesh(this.bigGeo, mat);
       const scale = 0.5 + Math.random() * 1.5;
-      mesh.position.set(x, y, 0);
+      this.primeMesh(mesh, x, y, PARTICLE_BASE_Z - Math.random() * 0.16);
       mesh.scale.setScalar(scale);
-      this.scene.add(mesh);
 
       const angle = (Math.PI * 2 * i) / 40;
       const speed = PARTICLE_SPEED * (0.8 + Math.random());
@@ -275,7 +274,10 @@ export class Particles {
       p.life -= dt;
       p.mesh.position.x += p.vx;
       p.mesh.position.y += p.vy;
-      p.mesh.position.z += p.vz;
+      p.mesh.position.z = Math.min(
+        PARTICLE_MAX_Z,
+        Math.max(PARTICLE_MIN_Z, p.mesh.position.z + p.vz)
+      );
       p.mesh.rotation.z += p.rotSpeed;
       // Gravity
       p.vy -= 0.004;

@@ -79,6 +79,7 @@ export class Ball {
     });
     this.mesh = new THREE.Mesh(geo, mat);
     this.mesh.position.set(0, PADDLE_Y + 0.5, 0);
+    this.mesh.renderOrder = 10;
 
     this.glow = new THREE.PointLight(color, 2, 8);
     this.mesh.add(this.glow);
@@ -161,6 +162,7 @@ export class Ball {
     });
     const dot = new THREE.Mesh(geo, mat);
     dot.position.copy(this.mesh.position);
+    dot.renderOrder = 8;
     this.scene.add(dot);
     this.trail.push(dot);
 

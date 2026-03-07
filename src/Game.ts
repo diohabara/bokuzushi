@@ -538,7 +538,22 @@ export class Game {
   }
 
   private getBaseSpeed(): number {
-    return Math.min(BALL_SPEED + (this.world - 1) * WORLD_SPEED_BONUS, BALL_MAX_SPEED);
+    return Math.min(
+      (BALL_SPEED + (this.world - 1) * WORLD_SPEED_BONUS) * this.getSpeedScale(),
+      this.getMaxSpeed()
+    );
+  }
+
+  private getWaveSpeedIncrement(): number {
+    return BALL_SPEED_INCREMENT * this.getSpeedScale();
+  }
+
+  private getMaxSpeed(): number {
+    return this.coarsePointer ? BALL_MAX_SPEED * 0.88 : BALL_MAX_SPEED;
+  }
+
+  private getSpeedScale(): number {
+    return this.coarsePointer ? 0.88 : 1;
   }
 
   private getWorldName(): string {
@@ -607,7 +622,7 @@ export class Game {
     this.blocksDestroyed = 0;
     this.reachShown = false;
     this.resetRoundMomentum();
-    this.ball.speed = Math.min(this.ball.speed + BALL_SPEED_INCREMENT, BALL_MAX_SPEED);
+    this.ball.speed = Math.min(this.ball.speed + this.getWaveSpeedIncrement(), this.getMaxSpeed());
     this.starField.generate(this.wave - 1, this.world - 1);
     this.ball.reset(this.paddle.x, this.paddle.y);
     this.initialServePending = true;
