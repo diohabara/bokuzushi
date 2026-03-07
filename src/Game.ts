@@ -665,6 +665,12 @@ export class Game {
     this.shockwaveEl.classList.add("active");
   }
 
+  private vibrate(pattern: number | number[]) {
+    if (!this.coarsePointer) return;
+    if (typeof navigator === "undefined" || typeof navigator.vibrate !== "function") return;
+    navigator.vibrate(pattern);
+  }
+
   private screenZoom(target: number) {
     this.zoomTarget = target;
     setTimeout(() => {
@@ -701,10 +707,12 @@ export class Game {
         this.rainbowFlash(3.5);
         this.startSlowMotion(0.8);
         this.screenZoom(1.15);
+        this.vibrate([18, 24, 18, 50, 28]);
       } else {
         this.multiFlash(4, 80, ["#ffd700", "#ffffff", "#ffaa00", "#ffd700"]);
         this.shake(0.4, 0.3);
         this.screenZoom(1.05);
+        this.vibrate([12, 18, 16]);
       }
     }
 
@@ -715,6 +723,7 @@ export class Game {
       this.startSlowMotion(0.35);
       this.shake(0.7, 0.45);
       this.screenZoom(1.12);
+      this.vibrate([24, 30, 24, 40, 48]);
     }
   }
 
@@ -924,6 +933,7 @@ export class Game {
     this.triggerShockwave(screenPos.x, screenPos.y);
     this.hud.showScorePopup(screenPos.x, screenPos.y, Math.round(starBonus * getScoreMultiplier(this.progression)));
     this.hud.showBigText("★ V入賞 ★", "kakuhen");
+    this.vibrate([30, 20, 30, 20, 70]);
     this.updateHUD();
 
     const themeName = this.getWorldName();
@@ -1077,6 +1087,7 @@ export class Game {
         this.multiFlash(6, 70, ["#ff0022", "#ffffff", "#880000"]);
         this.state = "gameover";
         this.saveScore();
+        this.vibrate([40, 30, 60]);
         setTimeout(() => {
           this.showOverlay(
             "ゲームオーバー",
