@@ -2,11 +2,14 @@ import * as THREE from "three";
 import { Block } from "./Block";
 import { Star } from "./Star";
 import {
+  BLOCK_HEIGHT,
   BLOCK_SPACING_X,
   BLOCK_SPACING_Y,
   BLOCK_START_Y,
   BLOCK_COLORS,
+  GAME_HEIGHT,
   GAME_WIDTH,
+  WALL_THICKNESS,
   WORLD_THEMES,
   INDESTRUCTIBLE_COLOR,
   INDESTRUCTIBLE_COLOR_INDEX,
@@ -15,6 +18,14 @@ import {
 } from "./constants";
 
 type PatternFn = (cols: number, rows: number) => boolean[][];
+type StarFieldGenerateOptions = {
+  coarsePointer?: boolean;
+  paddleTop?: number;
+};
+
+const MOBILE_LAYOUT_ROW_THRESHOLD = 24;
+const MOBILE_BLOCK_TOP_MARGIN = 0.2;
+const MOBILE_PADDLE_CLEARANCE = 0.9;
 
 const patternMap: Record<PatternName, PatternFn> = {
   // Full wall — ball must smash through everything
@@ -226,13 +237,37 @@ export function getStarPlacementProfile(worldIndex: number, waveIndex: number) {
   };
 }
 
+export function getBlockLayoutProfile(rows: number, coarsePointer: boolean, paddleTop: number) {
+  if (!coarsePointer || rows <= MOBILE_LAYOUT_ROW_THRESHOLD) {
+    return {
+      startY: BLOCK_START_Y,
+      spacingY: BLOCK_SPACING_Y,
+    };
+  }
+
+  const topLimitY = GAME_HEIGHT / 2 - WALL_THICKNESS - BLOCK_HEIGHT / 2 - MOBILE_BLOCK_TOP_MARGIN;
+  const lowestAllowedY = paddleTop + BLOCK_HEIGHT / 2 + MOBILE_PADDLE_CLEARANCE;
+  const fittedSpacingY = rows > 1
+    ? (topLimitY - lowestAllowedY) / (rows - 1)
+    : BLOCK_SPACING_Y;
+
+  return {
+    startY: topLimitY,
+    spacingY: Math.max(0.1, Math.min(BLOCK_SPACING_Y, fittedSpacingY)),
+  };
+}
+
 export class StarField {
   blocks: Block[] = [];
   star: Star | null = null;
 
   constructor(private scene: THREE.Scene) {}
 
-  generate(waveIndex = 0, worldIndex = 0) {
+  generate(
+    waveIndex = 0,
+    worldIndex = 0,
+    options: StarFieldGenerateOptions = {}
+  ) {
     this.clear();
 
     const theme = WORLD_THEMES[worldIndex % WORLD_THEMES.length];
@@ -240,6 +275,11 @@ export class StarField {
     const patternFn = patternMap[patternName];
     const cols = theme.cols;
     const rows = theme.rows;
+    const layout = getBlockLayoutProfile(
+      rows,
+      options.coarsePointer === true && options.paddleTop !== undefined,
+      options.paddleTop ?? 0
+    );
 
     const grid = patternFn(cols, rows);
 
@@ -291,7 +331,7 @@ export class StarField {
         if (!grid[row][col] && !indestructibleMask[row][col]) continue;
 
         const x = startX + col * BLOCK_SPACING_X;
-        const y = BLOCK_START_Y - row * BLOCK_SPACING_Y;
+        const y = layout.startY - row * layout.spacingY;
 
         if (Math.abs(x) > GAME_WIDTH / 2 - 0.6) continue;
 
@@ -335,7 +375,7 @@ export class StarField {
 
     if (!this.star) {
       const x = 0;
-      const y = BLOCK_START_Y - starRow * BLOCK_SPACING_Y;
+      const y = layout.startY - starRow * layout.spacingY;
       this.star = new Star(x, y);
       this.scene.add(this.star.mesh);
     }

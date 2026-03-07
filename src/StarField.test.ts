@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { getStarPlacementProfile } from "./StarField";
+import {
+  getBlockLayoutProfile,
+  getStarPlacementProfile,
+} from "./StarField";
+import {
+  BLOCK_HEIGHT,
+  BLOCK_SPACING_Y,
+  BLOCK_START_Y,
+  PADDLE_HEIGHT,
+  PADDLE_Y,
+} from "./constants";
 
 describe("getStarPlacementProfile", () => {
   it("各ステージは下から 50%, 70%, 90% ベースで奥へ進む", () => {
@@ -39,5 +49,43 @@ describe("getStarPlacementProfile", () => {
     expect(early.guardTierBoost).toBeLessThan(late.guardTierBoost);
     expect(early.guardHpMultiplier).toBeLessThan(late.guardHpMultiplier);
     expect(early.guardRadius).toBeLessThanOrEqual(late.guardRadius);
+  });
+});
+
+describe("getBlockLayoutProfile", () => {
+  const mobilePaddleTop = PADDLE_Y + 1.75 + PADDLE_HEIGHT / 2;
+
+  it("desktop では高段数でも従来レイアウトを維持する", () => {
+    const layout = getBlockLayoutProfile(32, false, mobilePaddleTop);
+
+    expect(layout.startY).toBe(BLOCK_START_Y);
+    expect(layout.spacingY).toBe(BLOCK_SPACING_Y);
+  });
+
+  it("mobile でも 24 行以下は従来レイアウトを維持する", () => {
+    const layout = getBlockLayoutProfile(24, true, mobilePaddleTop);
+
+    expect(layout.startY).toBe(BLOCK_START_Y);
+    expect(layout.spacingY).toBe(BLOCK_SPACING_Y);
+  });
+
+  it("mobile の 4章相当は上へ逃がしつつ間隔は維持する", () => {
+    const rows = 28;
+    const layout = getBlockLayoutProfile(rows, true, mobilePaddleTop);
+    const lowestBlockY = layout.startY - layout.spacingY * (rows - 1);
+
+    expect(layout.startY).toBeGreaterThan(BLOCK_START_Y);
+    expect(layout.spacingY).toBeCloseTo(BLOCK_SPACING_Y);
+    expect(lowestBlockY).toBeGreaterThan(mobilePaddleTop + BLOCK_HEIGHT / 2);
+  });
+
+  it("mobile の 5章相当は縦間隔を詰めて最下段をパドルより上に保つ", () => {
+    const rows = 32;
+    const layout = getBlockLayoutProfile(rows, true, mobilePaddleTop);
+    const lowestBlockY = layout.startY - layout.spacingY * (rows - 1);
+
+    expect(layout.startY).toBeGreaterThan(BLOCK_START_Y);
+    expect(layout.spacingY).toBeLessThan(BLOCK_SPACING_Y);
+    expect(lowestBlockY).toBeGreaterThan(mobilePaddleTop + BLOCK_HEIGHT / 2);
   });
 });

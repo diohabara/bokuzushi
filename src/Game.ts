@@ -632,7 +632,10 @@ export class Game {
     this.resetRoundMomentum();
     this.syncBallTier();
     this.ball.speed = this.getBaseSpeed();
-    this.starField.generate(0, this.world - 1);
+    this.starField.generate(0, this.world - 1, {
+      coarsePointer: this.coarsePointer,
+      paddleTop: this.paddle.top,
+    });
     this.particles.setWorld(this.world - 1);
     this.worldBg.generate(this.world - 1);
     this.ball.reset(this.paddle.x, this.paddle.y);
@@ -653,7 +656,10 @@ export class Game {
     this.reachShown = false;
     this.resetRoundMomentum();
     this.ball.speed = Math.min(this.ball.speed + this.getWaveSpeedIncrement(), this.getMaxSpeed());
-    this.starField.generate(this.wave - 1, this.world - 1);
+    this.starField.generate(this.wave - 1, this.world - 1, {
+      coarsePointer: this.coarsePointer,
+      paddleTop: this.paddle.top,
+    });
     this.ball.reset(this.paddle.x, this.paddle.y);
     this.initialServePending = true;
     this.mouseX = this.paddle.x;
@@ -677,7 +683,10 @@ export class Game {
     this.resetRoundMomentum();
     this.syncBallTier();
     this.ball.speed = this.getBaseSpeed();
-    this.starField.generate(0, this.world - 1);
+    this.starField.generate(0, this.world - 1, {
+      coarsePointer: this.coarsePointer,
+      paddleTop: this.paddle.top,
+    });
     this.particles.setWorld(this.world - 1);
     this.worldBg.generate(this.world - 1);
     this.ball.reset(this.paddle.x, this.paddle.y);
