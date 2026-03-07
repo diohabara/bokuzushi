@@ -4,6 +4,7 @@ import { Ball } from "./Ball";
 import { StarField } from "./StarField";
 import { HUD } from "./HUD";
 import { Particles } from "./Particles";
+import { WorldBackground } from "./WorldBackground";
 import {
   GAME_WIDTH,
   GAME_HEIGHT,
@@ -14,7 +15,6 @@ import {
   BALL_MAX_SPEED,
   HITS_BASE,
   HITS_GROWTH,
-  MAX_PENETRATION,
   WAVES_PER_WORLD,
   WORLD_SPEED_BONUS,
   MAX_WORLDS,
@@ -23,7 +23,8 @@ import {
   BLOCK_WIDTH,
   BLOCK_HEIGHT,
   BLOCK_COLORS,
-  BG_STAR_COUNT,
+  BALL_COLOR_BLACK,
+  BALL_MAX_TIER,
   SHAKE_INTENSITY,
   SHAKE_DURATION,
   COMBO_ATSU,
@@ -45,11 +46,11 @@ export class Game {
   private starField: StarField;
   private hud: HUD;
   private particles: Particles;
+  private worldBg: WorldBackground;
 
   private state: GameState = "start";
   private score = 0;
   private level = 1;
-  private penetrationLevel = 0;
   private hitCount = 0;
   private nextLevelHits = HITS_BASE;
   private world = 1;
@@ -111,7 +112,7 @@ export class Game {
     rimLight.position.set(-5, -5, 10);
     this.scene.add(rimLight);
 
-    this.createBackgroundStars();
+    this.worldBg = new WorldBackground(this.scene);
 
     this.paddle = new Paddle();
     this.scene.add(this.paddle.mesh);
@@ -183,26 +184,6 @@ export class Game {
     }
   }
 
-  private createBackgroundStars() {
-    const geo = new THREE.SphereGeometry(0.04, 4, 4);
-    for (let i = 0; i < BG_STAR_COUNT; i++) {
-      const brightness = 0.3 + Math.random() * 0.7;
-      const mat = new THREE.MeshBasicMaterial({
-        color: new THREE.Color(brightness, brightness, brightness * 1.2),
-        transparent: true,
-        opacity: 0.3 + Math.random() * 0.5,
-      });
-      const star = new THREE.Mesh(geo, mat);
-      star.position.set(
-        (Math.random() - 0.5) * GAME_WIDTH * 1.5,
-        (Math.random() - 0.5) * GAME_HEIGHT * 1.2,
-        -5 - Math.random() * 10
-      );
-      star.scale.setScalar(0.5 + Math.random() * 2);
-      this.scene.add(star);
-    }
-  }
-
   private createWalls() {
     const wallMat = new THREE.MeshStandardMaterial({
       color: 0x1a1a3a, emissive: 0x0a0a2a, emissiveIntensity: 0.5,
@@ -245,12 +226,12 @@ export class Game {
     }, { passive: false });
     window.addEventListener("click", () => {
       if (this.state === "playing" && !this.ball.active) {
-        this.ball.launch(this.penetrationLevel);
+        this.ball.launch();
       }
     });
     window.addEventListener("touchend", () => {
       if (this.state === "playing" && !this.ball.active) {
-        this.ball.launch(this.penetrationLevel);
+        this.ball.launch();
       }
     });
   }
@@ -307,7 +288,6 @@ export class Game {
   private startNewGame(startWorld: number) {
     this.score = 0;
     this.level = 1;
-    this.penetrationLevel = 0;
     this.hitCount = 0;
     this.nextLevelHits = HITS_BASE;
     this.world = startWorld;
@@ -315,15 +295,25 @@ export class Game {
     this.combo = 0;
     this.comboTimer = 0;
     this.ball.speed = this.getBaseSpeed();
-    this.ball.updateGlow(0);
-    this.ball.cycleColor();
+    this.ball.colorIndex = 0;
+    this.ball.applyColor();
+    this.ball.updateGlow();
     this.starField.generate(0, this.world - 1);
     this.ball.reset(this.paddle.x);
+    this.particles.setWorld(this.world - 1);
+    this.worldBg.generate(this.world - 1);
     this.state = "playing";
     this.worldSelectEl.classList.remove("show");
     this.overlay.classList.add("hidden");
     this.updateHUD();
-    this.hud.updateBallColor(this.colorToHex(BLOCK_COLORS[this.ball.colorIndex]));
+    this.hud.updateBallColor(this.getBallColorHex());
+  }
+
+  private getBallColorHex(): string {
+    if (this.ball.colorIndex >= BLOCK_COLORS.length) {
+      return this.colorToHex(BALL_COLOR_BLACK);
+    }
+    return this.colorToHex(BLOCK_COLORS[this.ball.colorIndex]);
   }
 
   private nextWave() {
@@ -340,17 +330,21 @@ export class Game {
     this.world++;
     this.wave = 1;
     this.level = 1;
-    this.penetrationLevel = 0;
     this.hitCount = 0;
     this.nextLevelHits = HITS_BASE;
     this.combo = 0;
     this.ball.speed = this.getBaseSpeed();
-    this.ball.updateGlow(0);
+    this.ball.colorIndex = 0;
+    this.ball.applyColor();
+    this.ball.updateGlow();
     this.starField.generate(0, this.world - 1);
     this.ball.reset(this.paddle.x);
+    this.particles.setWorld(this.world - 1);
+    this.worldBg.generate(this.world - 1);
     this.state = "playing";
     this.overlay.classList.add("hidden");
     this.updateHUD();
+    this.hud.updateBallColor(this.getBallColorHex());
   }
 
   private showOverlay(title: string, message: string, sub = "") {
@@ -362,7 +356,7 @@ export class Game {
 
   private updateHUD() {
     this.hud.update(
-      this.score, this.level, this.penetrationLevel,
+      this.score, this.level, this.ball.colorIndex,
       this.world, this.wave, this.getWorldName()
     );
   }
@@ -372,7 +366,7 @@ export class Game {
     this.shakeIntensity = Math.max(this.shakeIntensity, intensity);
   }
 
-  private flashScreen(color: string, duration: number, intensity = 0.6) {
+  private flashScreen(color: string, duration: number, intensity = 0.35) {
     this.flashEl.style.background = color;
     this.flashEl.style.opacity = String(intensity);
     this.flashEl.style.transition = "none";
@@ -389,14 +383,14 @@ export class Game {
   private multiFlash(count: number, interval: number, colors: string[]) {
     for (let i = 0; i < count; i++) {
       setTimeout(() => {
-        this.flashScreen(colors[i % colors.length], interval * 0.8, 0.9);
+        this.flashScreen(colors[i % colors.length], interval * 0.8, 0.4);
       }, i * interval);
     }
   }
 
   private startSlowMotion(duration: number) {
-    this.timeScale = 0.2;
-    this.slowMotionTimer = duration;
+    this.timeScale = 0.5;
+    this.slowMotionTimer = Math.min(duration, 0.4);
   }
 
   private triggerShockwave(x: number, y: number) {
@@ -488,20 +482,19 @@ export class Game {
       this.ball.vx = Math.cos(angle) * this.ball.speed;
       this.ball.vy = Math.abs(Math.sin(angle) * this.ball.speed);
       this.ball.mesh.position.y = this.paddle.top + BALL_RADIUS;
-      this.ball.penetrationRemaining = this.penetrationLevel;
-
-      // Color change on paddle hit!
-      this.ball.cycleColor();
-      const newColor = BLOCK_COLORS[this.ball.colorIndex];
-      this.hud.updateBallColor(this.colorToHex(newColor));
-      this.particles.colorChangeBurst(bx, this.paddle.top, newColor);
-      this.flashScreen(this.colorToHex(newColor), 200, 0.3);
-      this.shake(0.15, 0.1);
 
       // Update paddle color to match ball
       const padMat = this.paddle.mesh.material as THREE.MeshStandardMaterial;
-      padMat.color.setHex(newColor);
-      padMat.emissive.setHex(newColor);
+      if (this.ball.colorIndex >= BLOCK_COLORS.length) {
+        padMat.color.setHex(BALL_COLOR_BLACK);
+        padMat.emissive.setHex(0xbb44ff);
+        padMat.emissiveIntensity = 2.0;
+      } else {
+        const curColor = BLOCK_COLORS[this.ball.colorIndex];
+        padMat.color.setHex(curColor);
+        padMat.emissive.setHex(curColor);
+        padMat.emissiveIntensity = 0.5;
+      }
     }
   }
 
@@ -511,12 +504,25 @@ export class Game {
       this.level++;
       this.hitCount = 0;
       this.nextLevelHits = HITS_BASE + (this.level - 1) * HITS_GROWTH;
-      this.penetrationLevel = Math.min(this.penetrationLevel + 1, MAX_PENETRATION);
-      this.ball.updateGlow(this.penetrationLevel);
+      // Promote ball color to next tier
+      this.ball.colorIndex = Math.min(this.ball.colorIndex + 1, BALL_MAX_TIER);
+      this.ball.applyColor();
+      this.ball.updateGlow();
+      this.hud.updateBallColor(this.getBallColorHex());
       this.hud.showLevelUp(this.level);
-      this.multiFlash(4, 80, ["#ffd700", "#ffffff", "#ffaa00", "#ffd700"]);
-      this.shake(0.4, 0.3);
-      this.screenZoom(1.08);
+      if (this.ball.colorIndex === BALL_MAX_TIER) {
+        // Black awakening - special effects
+        this.hud.showBigText("覚醒!!黒", "kakuhen");
+        this.multiFlash(12, 50, ["#111111", "#ffffff", "#9933cc", "#ffffff", "#111111", "#8800ff"]);
+        this.shake(1.2, 0.8);
+        this.rainbowFlash(4.0);
+        this.startSlowMotion(0.8);
+        this.screenZoom(1.2);
+      } else {
+        this.multiFlash(4, 80, ["#ffd700", "#ffffff", "#ffaa00", "#ffd700"]);
+        this.shake(0.4, 0.3);
+        this.screenZoom(1.08);
+      }
     }
   }
 
@@ -524,8 +530,6 @@ export class Game {
     this.particles.starBurst(sx, sy);
     const points = 500;
     this.score += points;
-    this.penetrationLevel = Math.min(this.penetrationLevel + 1, MAX_PENETRATION);
-    this.ball.updateGlow(this.penetrationLevel);
 
     // MEGA effects - star destroyed
     this.shake(1.5, 1.0);
@@ -577,52 +581,51 @@ export class Game {
         by + BALL_RADIUS > sy - bhh &&
         by - BALL_RADIUS < sy + bhh
       ) {
-        // Color matching check
-        if (block.colorIndex !== this.ball.colorIndex) {
-          // Non-matching: bounce off, no damage, small spark
-          this.bounceOffBlock(bx, by, sx, sy, bhw, bhh);
-          this.particles.bounceSpark(sx, sy);
-          continue;
-        }
-
-        // Matching color - destroy!
+        // Color tier comparison
         const color = (
           (block.mesh.material as THREE.MeshStandardMaterial).color as THREE.Color
         ).getHex();
 
         let points = 0;
-        this.onBlockHit();
 
-        if (this.ball.penetrationRemaining >= block.hp) {
-          // Penetrate through - no bounce
-          this.ball.penetrationRemaining -= block.hp;
+        if (!block.indestructible && this.ball.colorIndex > block.colorIndex) {
+          // Ball stronger than block → penetrating destroy (no bounce)
+          this.onBlockHit();
           points = block.maxHp * 10;
           block.destroy();
           this.particles.burst(sx, sy, color);
           this.score += points;
           this.addCombo();
           this.shake(0.3, 0.15);
-          this.flashScreen("rgba(255,255,255,0.6)", 150, 0.8);
+          this.flashScreen("rgba(255,255,255,0.6)", 150, 0.4);
           const screenPos = this.worldToScreen(sx, sy);
           this.triggerShockwave(screenPos.x, screenPos.y);
-        } else if (this.ball.penetrationRemaining > 0) {
-          block.hit(this.ball.penetrationRemaining);
-          this.ball.penetrationRemaining = 0;
-          this.particles.hitBurst(sx, sy, color);
-          this.bounceOffBlock(bx, by, sx, sy, bhw, bhh);
-          this.shake(0.2);
-          this.flashScreen("rgba(255,255,255,0.4)", 100);
-        } else {
-          const destroyed = block.hit(1);
+        } else if (!block.indestructible && this.ball.colorIndex === block.colorIndex) {
+          // Same tier → normal destroy (bounce)
+          this.onBlockHit();
+          const destroyed = block.hit(block.hp);
           if (destroyed) {
             points = block.maxHp * 10;
             this.particles.burst(sx, sy, color);
             this.score += points;
             this.addCombo();
             this.shake(0.3, 0.15);
-            this.flashScreen("rgba(255,255,255,0.6)", 150, 0.8);
+            this.flashScreen("rgba(255,255,255,0.6)", 150, 0.4);
             const screenPos = this.worldToScreen(sx, sy);
             this.triggerShockwave(screenPos.x, screenPos.y);
+          }
+          this.bounceOffBlock(bx, by, sx, sy, bhw, bhh);
+        } else {
+          // Ball weaker than block OR armored block → chip damage (bounce)
+          const chipDmg = block.indestructible ? 2 : Math.max(1, this.ball.colorIndex);
+          const destroyed = block.hit(chipDmg);
+          if (destroyed) {
+            this.onBlockHit();
+            points = block.maxHp * 10;
+            this.particles.burst(sx, sy, color);
+            this.score += points;
+            this.addCombo();
+            this.shake(0.3, 0.15);
           } else {
             this.particles.hitBurst(sx, sy, color);
             this.shake(0.15);
@@ -666,11 +669,43 @@ export class Game {
     const overlapRight = (sx + hw) - (bx - BALL_RADIUS);
     const overlapTop = (sy + hh) - (by - BALL_RADIUS);
     const overlapBottom = (by + BALL_RADIUS) - (sy - hh);
-    const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
-    if (minOverlap === overlapLeft || minOverlap === overlapRight) {
-      this.ball.vx = -this.ball.vx;
+
+    // Only consider faces the ball is actually approaching
+    let minX = Infinity;
+    let minY = Infinity;
+    let signX = 0;
+    let signY = 0;
+
+    if (this.ball.vx > 0 && overlapLeft < minX) {
+      minX = overlapLeft; signX = -1; // hit left face → push left
+    }
+    if (this.ball.vx < 0 && overlapRight < minX) {
+      minX = overlapRight; signX = 1; // hit right face → push right
+    }
+    if (this.ball.vy > 0 && overlapBottom < minY) {
+      minY = overlapBottom; signY = -1; // hit bottom face → push down
+    }
+    if (this.ball.vy < 0 && overlapTop < minY) {
+      minY = overlapTop; signY = 1; // hit top face → push up
+    }
+
+    if (minX <= minY && signX !== 0) {
+      this.ball.vx = Math.abs(this.ball.vx) * signX;
+      this.ball.mesh.position.x += signX * minX;
+    } else if (signY !== 0) {
+      this.ball.vy = Math.abs(this.ball.vy) * signY;
+      this.ball.mesh.position.y += signY * minY;
+    } else if (signX !== 0) {
+      this.ball.vx = Math.abs(this.ball.vx) * signX;
+      this.ball.mesh.position.x += signX * minX;
     } else {
-      this.ball.vy = -this.ball.vy;
+      // Fallback: use original minimum overlap method
+      const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
+      if (minOverlap === overlapLeft || minOverlap === overlapRight) {
+        this.ball.vx = -this.ball.vx;
+      } else {
+        this.ball.vy = -this.ball.vy;
+      }
     }
   }
 
@@ -752,6 +787,7 @@ export class Game {
       this.shakeIntensity = 0;
     }
 
+    this.worldBg.update(dt);
     this.particles.update(scaledDt);
     this.renderer.render(this.scene, this.camera);
   };

@@ -1,7 +1,7 @@
 export class HUD {
   private scoreEl: HTMLElement;
   private levelEl: HTMLElement;
-  private penetrationEl: HTMLElement;
+  private colorTierEl: HTMLElement;
   private worldWaveEl: HTMLElement;
   private levelUpEl: HTMLElement;
   private comboEl: HTMLElement;
@@ -12,7 +12,7 @@ export class HUD {
   constructor() {
     this.scoreEl = document.getElementById("hud-score")!;
     this.levelEl = document.getElementById("hud-level")!;
-    this.penetrationEl = document.getElementById("hud-penetration")!;
+    this.colorTierEl = document.getElementById("hud-penetration")!;
     this.worldWaveEl = document.getElementById("hud-world")!;
     this.levelUpEl = document.getElementById("level-up")!;
     this.comboEl = document.getElementById("combo")!;
@@ -23,16 +23,16 @@ export class HUD {
   update(
     score: number,
     level: number,
-    penetration: number,
+    colorTier: number,
     world: number,
     wave: number,
     worldName: string
   ) {
     this.scoreEl.textContent = String(score);
     this.levelEl.textContent = String(level);
-    this.penetrationEl.textContent =
-      "\u2605".repeat(penetration) +
-      "\u2606".repeat(Math.max(0, 10 - penetration));
+    const tierNames = ["赤", "橙", "黄", "緑", "青", "藍", "紫", "黒"];
+    this.colorTierEl.textContent =
+      "\u2605".repeat(colorTier + 1) + " " + (tierNames[colorTier] ?? "");
     this.worldWaveEl.textContent = `${worldName} \u2015 ${wave}`;
 
     if (score !== this.prevScore) {

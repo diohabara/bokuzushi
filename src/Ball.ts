@@ -6,6 +6,7 @@ import {
   GAME_HEIGHT,
   PADDLE_Y,
   BLOCK_COLORS,
+  BALL_COLOR_BLACK,
 } from "./constants";
 
 export class Ball {
@@ -14,9 +15,8 @@ export class Ball {
   vx = 0;
   vy = 0;
   speed = BALL_SPEED;
-  penetrationRemaining = 0;
   active = false;
-  colorIndex = 0; // index into BLOCK_COLORS
+  colorIndex = 0; // color strength tier (0=red weakest, 6=violet, 7=black strongest)
   private glow: THREE.PointLight;
   private scene: THREE.Scene;
 
@@ -36,31 +36,30 @@ export class Ball {
     this.mesh.add(this.glow);
   }
 
-  /** Change ball color to a random BLOCK_COLOR */
-  cycleColor() {
-    const oldIndex = this.colorIndex;
-    // Ensure we get a different color
-    do {
-      this.colorIndex = Math.floor(Math.random() * BLOCK_COLORS.length);
-    } while (this.colorIndex === oldIndex && BLOCK_COLORS.length > 1);
-    this.applyColor();
-  }
-
-  private applyColor() {
-    const color = BLOCK_COLORS[this.colorIndex];
+  applyColor() {
     const mat = this.mesh.material as THREE.MeshStandardMaterial;
-    mat.color.setHex(color);
-    mat.emissive.setHex(color);
-    mat.emissiveIntensity = 1.0;
-    this.glow.color.setHex(color);
+    if (this.colorIndex >= BLOCK_COLORS.length) {
+      // Black ball - dark aura with bright purple glow
+      mat.color.setHex(BALL_COLOR_BLACK);
+      mat.emissive.setHex(0xbb44ff);
+      mat.emissiveIntensity = 3.0;
+      this.glow.color.setHex(0xcc66ff);
+      this.glow.intensity = 8;
+      this.glow.distance = 16;
+    } else {
+      const color = BLOCK_COLORS[this.colorIndex];
+      mat.color.setHex(color);
+      mat.emissive.setHex(color);
+      mat.emissiveIntensity = 1.0;
+      this.glow.color.setHex(color);
+    }
   }
 
-  launch(penetrationLevel: number) {
+  launch() {
     if (this.active) return;
     const angle = Math.PI / 2 + (Math.random() - 0.5) * 0.6;
     this.vx = Math.cos(angle) * this.speed;
     this.vy = Math.sin(angle) * this.speed;
-    this.penetrationRemaining = penetrationLevel;
     this.active = true;
   }
 
@@ -72,15 +71,24 @@ export class Ball {
     this.clearTrail();
   }
 
-  updateGlow(penetrationLevel: number) {
-    const intensity = 2 + penetrationLevel * 0.5;
-    this.glow.intensity = intensity;
-    this.glow.distance = 8 + penetrationLevel * 1.0;
-    const mat = this.mesh.material as THREE.MeshStandardMaterial;
-    mat.emissiveIntensity = 1.0 + penetrationLevel * 0.2;
-    // Scale ball slightly with penetration
-    const scale = 1 + penetrationLevel * 0.05;
-    this.mesh.scale.setScalar(scale);
+  updateGlow() {
+    const tier = this.colorIndex;
+    if (tier >= BLOCK_COLORS.length) {
+      // Black tier: intense glow
+      this.glow.intensity = 6;
+      this.glow.distance = 20;
+      const mat = this.mesh.material as THREE.MeshStandardMaterial;
+      mat.emissiveIntensity = 2.5;
+      this.mesh.scale.setScalar(1.5);
+    } else {
+      const intensity = 2 + tier * 1.0;
+      this.glow.intensity = intensity;
+      this.glow.distance = 8 + tier * 2.0;
+      const mat = this.mesh.material as THREE.MeshStandardMaterial;
+      mat.emissiveIntensity = 1.0 + tier * 0.3;
+      const scale = 1 + tier * 0.06;
+      this.mesh.scale.setScalar(scale);
+    }
   }
 
   private clearTrail() {
@@ -92,7 +100,8 @@ export class Ball {
 
   updateTrail() {
     if (!this.active) return;
-    const color = BLOCK_COLORS[this.colorIndex];
+    const color = this.colorIndex >= BLOCK_COLORS.length
+      ? BALL_COLOR_BLACK : BLOCK_COLORS[this.colorIndex];
     // Add trail dot
     const geo = new THREE.SphereGeometry(BALL_RADIUS * 0.6, 6, 6);
     const mat = new THREE.MeshBasicMaterial({

@@ -5,6 +5,8 @@ import {
   PARTICLE_SPEED,
   HIT_PARTICLE_COUNT,
   HIT_PARTICLE_SPEED,
+  WORLD_THEMES,
+  WorldTheme,
 } from "./constants";
 
 interface Particle {
@@ -18,13 +20,74 @@ interface Particle {
   rotSpeed: number;
 }
 
+function createGeometries(
+  shape: WorldTheme["particleShape"]
+): [THREE.BufferGeometry, THREE.BufferGeometry, THREE.BufferGeometry] {
+  switch (shape) {
+    case "sakura": {
+      // Petal shape: flat thin cylinder
+      return [
+        new THREE.CylinderGeometry(0.09, 0.06, 0.02, 5),
+        new THREE.CylinderGeometry(0.14, 0.09, 0.03, 5),
+        new THREE.CylinderGeometry(0.2, 0.14, 0.04, 5),
+      ];
+    }
+    case "flame": {
+      // Cone shape for flames
+      return [
+        new THREE.ConeGeometry(0.07, 0.18, 5),
+        new THREE.ConeGeometry(0.11, 0.28, 5),
+        new THREE.ConeGeometry(0.16, 0.4, 5),
+      ];
+    }
+    case "leaf": {
+      // Thin plane for leaves
+      return [
+        new THREE.PlaneGeometry(0.14, 0.09),
+        new THREE.PlaneGeometry(0.22, 0.14),
+        new THREE.PlaneGeometry(0.32, 0.2),
+      ];
+    }
+    case "crystal": {
+      // Octahedron for ice crystals
+      return [
+        new THREE.OctahedronGeometry(0.09),
+        new THREE.OctahedronGeometry(0.14),
+        new THREE.OctahedronGeometry(0.2),
+      ];
+    }
+    case "star": {
+      // 5-point star using LatheGeometry trick -> use dodecahedron as approximation
+      return [
+        new THREE.DodecahedronGeometry(0.09, 0),
+        new THREE.DodecahedronGeometry(0.14, 0),
+        new THREE.DodecahedronGeometry(0.2, 0),
+      ];
+    }
+    case "sphere":
+    default:
+      return [
+        new THREE.SphereGeometry(0.09, 6, 6),
+        new THREE.SphereGeometry(0.14, 8, 8),
+        new THREE.SphereGeometry(0.2, 8, 8),
+      ];
+  }
+}
+
 export class Particles {
   private particles: Particle[] = [];
-  private geo = new THREE.SphereGeometry(0.09, 6, 6);
-  private bigGeo = new THREE.SphereGeometry(0.14, 8, 8);
-  private hugeGeo = new THREE.SphereGeometry(0.2, 8, 8);
+  private geo: THREE.BufferGeometry;
+  private bigGeo: THREE.BufferGeometry;
+  private hugeGeo: THREE.BufferGeometry;
 
-  constructor(private scene: THREE.Scene) {}
+  constructor(private scene: THREE.Scene) {
+    [this.geo, this.bigGeo, this.hugeGeo] = createGeometries("sphere");
+  }
+
+  setWorld(worldIndex: number) {
+    const theme = WORLD_THEMES[worldIndex % WORLD_THEMES.length];
+    [this.geo, this.bigGeo, this.hugeGeo] = createGeometries(theme.particleShape);
+  }
 
   // Block hit (no destroy) - still very flashy
   hitBurst(x: number, y: number, color: number) {

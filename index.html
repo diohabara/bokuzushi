@@ -38,11 +38,11 @@
         background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
         gap: 4px;
       }
-      .hud-item { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; }
-      .hud-label { font-size: 9px; letter-spacing: 2px; opacity: 0.6; }
-      .hud-value { font-weight: 900; font-size: 18px; text-shadow: 0 0 12px currentColor; white-space: nowrap; transition: transform 0.15s; }
-      .penetration-stars { color: #ffd700; letter-spacing: 1px; font-size: 13px; }
-      .world-info { color: #ffcc88; font-size: 12px; letter-spacing: 1px; font-weight: 700; }
+      .hud-item { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; }
+      .hud-label { font-size: 12px; letter-spacing: 2px; opacity: 0.6; }
+      .hud-value { font-weight: 900; font-size: 24px; text-shadow: 0 0 12px currentColor; white-space: nowrap; transition: transform 0.15s; }
+      .penetration-stars { color: #ffd700; letter-spacing: 1px; font-size: 18px; }
+      .world-info { color: #ffcc88; font-size: 18px; letter-spacing: 2px; font-weight: 900; }
 
       /* Ball color indicator */
       .ball-color-indicator {
@@ -54,11 +54,11 @@
 
       @media (min-width: 600px) {
         #hud { padding: 10px 24px; }
-        .hud-label { font-size: 10px; letter-spacing: 3px; }
-        .hud-value { font-size: 24px; }
-        .penetration-stars { font-size: 16px; }
-        .world-info { font-size: 15px; letter-spacing: 2px; }
-        .ball-color-indicator { width: 26px; height: 26px; }
+        .hud-label { font-size: 14px; letter-spacing: 3px; }
+        .hud-value { font-size: 30px; }
+        .penetration-stars { font-size: 22px; }
+        .world-info { font-size: 24px; letter-spacing: 3px; }
+        .ball-color-indicator { width: 30px; height: 30px; }
       }
 
       /* ─── Screen Flash ─── */
@@ -239,7 +239,7 @@
         50% { filter: drop-shadow(0 0 40px rgba(255,215,0,0.7)); }
       }
       #overlay p {
-        font-size: clamp(14px, 3.5vw, 20px); opacity: 0.8; letter-spacing: 3px;
+        font-size: clamp(18px, 4vw, 26px); opacity: 0.8; letter-spacing: 3px;
         animation: blink 2s ease-in-out infinite;
         text-align: center;
       }
@@ -247,20 +247,21 @@
         0%, 100% { opacity: 0.8; } 50% { opacity: 0.3; }
       }
       #overlay .sub {
-        font-size: clamp(11px, 2.5vw, 14px); opacity: 0.4; margin-top: 6px;
+        font-size: clamp(14px, 3vw, 18px); opacity: 0.4; margin-top: 6px;
         letter-spacing: 2px;
       }
       #overlay .controls {
-        margin-top: 20px; font-size: 11px; opacity: 0.3;
-        line-height: 1.8; text-align: center; letter-spacing: 1px;
+        margin-top: 20px; font-size: 14px; opacity: 0.4;
+        line-height: 2.0; text-align: center; letter-spacing: 1px;
       }
       #overlay .color-hint {
-        margin-top: 12px; font-size: 12px; opacity: 0.5;
+        margin-top: 12px; font-size: 15px; opacity: 0.5;
         letter-spacing: 1px; line-height: 2;
+        text-align: center;
       }
       #overlay .color-hint span {
         display: inline-block;
-        width: 14px; height: 14px;
+        width: 16px; height: 16px;
         border-radius: 50%;
         vertical-align: middle;
         margin: 0 3px;
@@ -280,7 +281,7 @@
       }
       #world-select.show { display: flex; }
       .world-btn {
-        width: 76px; min-height: 80px;
+        width: 90px; min-height: 96px;
         border: 2px solid rgba(255,255,255,0.2);
         border-radius: 14px;
         background: rgba(255,255,255,0.05);
@@ -290,12 +291,12 @@
         transition: all 0.2s;
         display: flex; flex-direction: column;
         align-items: center; justify-content: center;
-        gap: 3px;
-        padding: 8px 4px;
+        gap: 4px;
+        padding: 10px 6px;
       }
-      .world-btn-emoji { font-size: 24px; line-height: 1; }
-      .world-btn-name { font-size: 13px; font-weight: 900; letter-spacing: 2px; }
-      .world-btn-sub { font-size: 7px; opacity: 0.5; letter-spacing: 1px; }
+      .world-btn-emoji { font-size: 34px; line-height: 1; }
+      .world-btn-name { font-size: 18px; font-weight: 900; letter-spacing: 2px; }
+      .world-btn-sub { font-size: 11px; opacity: 0.5; letter-spacing: 1px; }
       .world-btn:hover {
         transform: scale(1.08);
         box-shadow: 0 0 24px rgba(255,255,255,0.2);
@@ -304,15 +305,16 @@
       #world-select-label {
         width: 100%;
         text-align: center;
-        font-size: 12px; font-weight: 700;
+        font-size: 16px; font-weight: 700;
         letter-spacing: 4px;
         opacity: 0.5;
-        margin-bottom: 2px;
+        margin-bottom: 4px;
       }
       @media (max-width: 420px) {
-        .world-btn { width: 64px; min-height: 68px; }
-        .world-btn-emoji { font-size: 20px; }
-        .world-btn-name { font-size: 11px; }
+        .world-btn { width: 76px; min-height: 82px; }
+        .world-btn-emoji { font-size: 26px; }
+        .world-btn-name { font-size: 14px; }
+        .world-btn-sub { font-size: 10px; }
         #world-select { gap: 8px; }
       }
 
@@ -367,12 +369,13 @@
         <div id="world-select-label">─ 選 択 ─</div>
       </div>
       <div class="color-hint">
-        同じ色の玉で<span style="background:#ff4466"></span><span style="background:#4488ff"></span><span style="background:#44cc88"></span><span style="background:#ffcc44"></span>ブロックを砕け
+        ブロックを壊して段位を上げ<br/>
+        <span style="background:#ff3344"></span><span style="background:#ff8822"></span><span style="background:#ffcc00"></span><span style="background:#33cc66"></span><span style="background:#3388ff"></span><span style="background:#4444cc"></span><span style="background:#9933cc"></span><br/>
+        強い色で貫通せよ
       </div>
       <div class="controls">
         マウス / タッチ ─ パドル移動<br/>
-        クリック / タップ ─ 発射<br/>
-        玉がパドルに当たると色が変わる
+        クリック / タップ ─ 発射
       </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
