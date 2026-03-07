@@ -55,11 +55,10 @@ export class Block {
 
     this.mesh = new THREE.Mesh(geo, mat);
     this.mesh.position.set(x, y, 0);
-
-    this.createHpBar();
   }
 
   private createHpBar() {
+    if (this.hpBarBg || this.hpBarFg) return;
     const barWidth = BLOCK_WIDTH * 0.85;
     const barHeight = 0.07;
     const zFront = BLOCK_DEPTH / 2 + 0.05;
@@ -119,7 +118,10 @@ export class Block {
       this.destroy();
       return true;
     }
-    this.updateHpBar();
+    if (this.maxHp > 1) {
+      this.createHpBar();
+      this.updateHpBar();
+    }
     // Hit flash - bright white flash
     const mat = this.mesh.material as THREE.MeshStandardMaterial;
     mat.emissiveIntensity = 2.0;

@@ -109,10 +109,10 @@ export class Game {
   private rainbowTimer = 0;
   private zoomTarget = 1;
   private zoomCurrent = 1;
+  private renderPixelRatio = 1;
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setClearColor(0x050510);
 
     this.camera = new THREE.OrthographicCamera(-GAME_WIDTH / 2, GAME_WIDTH / 2, GAME_HEIGHT / 2, -GAME_HEIGHT / 2, 0.1, 100);
@@ -404,6 +404,7 @@ export class Game {
   private resize() {
     const width = window.innerWidth;
     const height = window.innerHeight;
+    this.updatePerformanceProfile(width, height);
     this.renderer.setSize(width, height);
 
     const aspect = width / height;
@@ -429,6 +430,26 @@ export class Game {
     this.camera.top = viewHeight / 2 + this.viewCenterY;
     this.camera.bottom = -viewHeight / 2 + this.viewCenterY;
     this.camera.updateProjectionMatrix();
+  }
+
+  private updatePerformanceProfile(width: number, height: number) {
+    const viewportPixels = Math.max(1, width * height);
+    const maxRenderPixels = this.coarsePointer ? 2_100_000 : 2_600_000;
+    const areaLimitedRatio = Math.sqrt(maxRenderPixels / viewportPixels);
+    const nextPixelRatio = Math.min(
+      window.devicePixelRatio || 1,
+      this.coarsePointer ? 1.35 : 1.6,
+      Math.max(0.85, areaLimitedRatio)
+    );
+
+    if (Math.abs(nextPixelRatio - this.renderPixelRatio) > 0.01) {
+      this.renderPixelRatio = nextPixelRatio;
+      this.renderer.setPixelRatio(nextPixelRatio);
+    }
+
+    const renderPixels = viewportPixels * nextPixelRatio * nextPixelRatio;
+    const effectIntensity = renderPixels > 3_200_000 ? 0.72 : renderPixels > 2_500_000 ? 0.84 : 1;
+    this.particles.setIntensity(effectIntensity);
   }
 
   private togglePause() {

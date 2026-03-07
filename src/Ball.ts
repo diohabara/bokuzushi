@@ -67,6 +67,12 @@ export class Ball {
   colorIndex = 0; // color strength tier (0=green weakest, 6=violet, 7=black strongest)
   private glow: THREE.PointLight;
   private scene: THREE.Scene;
+  private trailGeo: THREE.SphereGeometry;
+  private trailCursor = 0;
+
+  private static readonly TRAIL_POOL_SIZE = 14;
+  private static readonly TRAIL_OPACITY = 0.58;
+  private static readonly TRAIL_FADE_STEP = 0.08;
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
@@ -83,6 +89,20 @@ export class Ball {
 
     this.glow = new THREE.PointLight(color, 2, 8);
     this.mesh.add(this.glow);
+
+    this.trailGeo = new THREE.SphereGeometry(BALL_RADIUS * 0.6, 6, 6);
+    for (let i = 0; i < Ball.TRAIL_POOL_SIZE; i++) {
+      const mat = new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 0,
+      });
+      const dot = new THREE.Mesh(this.trailGeo, mat);
+      dot.visible = false;
+      dot.renderOrder = 8;
+      this.scene.add(dot);
+      this.trail.push(dot);
+    }
   }
 
   applyColor() {
@@ -144,35 +164,33 @@ export class Ball {
 
   private clearTrail() {
     for (const t of this.trail) {
-      this.scene.remove(t);
+      const material = t.material as THREE.MeshBasicMaterial;
+      material.opacity = 0;
+      t.visible = false;
     }
-    this.trail = [];
+    this.trailCursor = 0;
   }
 
   updateTrail() {
     if (!this.active) return;
     const color = this.colorIndex >= BLOCK_COLORS.length
       ? BALL_COLOR_BLACK : BLOCK_COLORS[this.colorIndex];
-    // Add trail dot
-    const geo = new THREE.SphereGeometry(BALL_RADIUS * 0.6, 6, 6);
-    const mat = new THREE.MeshBasicMaterial({
-      color,
-      transparent: true,
-      opacity: 0.6,
-    });
-    const dot = new THREE.Mesh(geo, mat);
-    dot.position.copy(this.mesh.position);
-    dot.renderOrder = 8;
-    this.scene.add(dot);
-    this.trail.push(dot);
 
-    // Fade and remove old trail
-    for (let i = this.trail.length - 1; i >= 0; i--) {
-      const m = this.trail[i].material as THREE.MeshBasicMaterial;
-      m.opacity -= 0.04;
-      if (m.opacity <= 0) {
-        this.scene.remove(this.trail[i]);
-        this.trail.splice(i, 1);
+    const dot = this.trail[this.trailCursor];
+    const dotMaterial = dot.material as THREE.MeshBasicMaterial;
+    dotMaterial.color.setHex(color);
+    dotMaterial.opacity = Ball.TRAIL_OPACITY;
+    dot.visible = true;
+    dot.position.copy(this.mesh.position);
+    dot.scale.copy(this.mesh.scale).multiplyScalar(0.8);
+    this.trailCursor = (this.trailCursor + 1) % this.trail.length;
+
+    for (const trailMesh of this.trail) {
+      if (!trailMesh.visible) continue;
+      const material = trailMesh.material as THREE.MeshBasicMaterial;
+      material.opacity = Math.max(0, material.opacity - Ball.TRAIL_FADE_STEP);
+      if (material.opacity <= 0.02) {
+        trailMesh.visible = false;
       }
     }
   }
