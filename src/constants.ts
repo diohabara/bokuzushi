@@ -24,15 +24,15 @@ export const BLOCK_SPACING_X = 1.3;
 export const BLOCK_SPACING_Y = 0.6;
 export const BLOCK_START_Y = GAME_HEIGHT / 2 - 1.8;
 
-// Color strength tiers (weakest -> strongest), rainbow order
+// Color strength tiers (weakest -> strongest), calm -> intense
 export const BLOCK_COLORS: number[] = [
-  0xff3344, // red     - tier 0
-  0xff8822, // orange  - tier 1
+  0x33cc66, // green   - tier 0 (weakest)
+  0x3388ff, // blue    - tier 1
   0xffcc00, // yellow  - tier 2
-  0x33cc66, // green   - tier 3
-  0x3388ff, // blue    - tier 4
+  0xff8822, // orange  - tier 3
+  0xff3344, // red     - tier 4
   0x4444cc, // indigo  - tier 5
-  0x9933cc, // violet  - tier 6
+  0x9933cc, // violet  - tier 6 (strongest)
 ];
 // Ball-only strongest color (tier 7). No block uses this -> penetrates all blocks
 export const BALL_COLOR_BLACK = 0x220033;

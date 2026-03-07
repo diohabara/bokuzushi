@@ -17,13 +17,13 @@ import {
 type PatternFn = (cols: number, rows: number) => boolean[][];
 
 const patternMap: Record<PatternName, PatternFn> = {
-  // Filled grid with horizontal corridors every few rows for ball to travel through
+  // Full wall — ball must smash through everything
   grid: (cols, rows) =>
-    Array.from({ length: rows }, (_, r) =>
-      Array.from({ length: cols }, () => r % 4 !== 3)
+    Array.from({ length: rows }, () =>
+      Array.from({ length: cols }, () => true)
     ),
 
-  // Diamond shape with internal gaps
+  // Filled diamond — solid shape, ball bounces off edges and inside
   diamond: (cols, rows) => {
     const cx = (cols - 1) / 2;
     const cy = (rows - 1) / 2;
@@ -32,113 +32,94 @@ const patternMap: Record<PatternName, PatternFn> = {
     return Array.from({ length: rows }, (_, r) =>
       Array.from({ length: cols }, (_, c) => {
         const d = Math.abs(c - cx) / rx + Math.abs(r - cy) / ry;
-        // Diamond shell with internal ring gaps
-        return d <= 1 && !((r + c) % 3 === 0 && d > 0.3 && d < 0.7);
+        return d <= 1;
       })
     );
   },
 
-  // V-shape with wider arms and internal gaps
+  // V-shape — wide filled arms with connecting bars
   "v-shape": (cols, rows) =>
     Array.from({ length: rows }, (_, r) =>
       Array.from({ length: cols }, (_, c) => {
         const cx = (cols - 1) / 2;
-        const armWidth = 2;
+        const armWidth = 3;
         const leftArm = Math.abs(c - (cx - r * (cx / rows)));
         const rightArm = Math.abs(c - (cx + r * (cx / rows)));
         const onArm = leftArm < armWidth || rightArm < armWidth;
-        // Add horizontal bars between arms every few rows
-        const bar = r % 5 === 2 && c > 1 && c < cols - 2;
-        return onArm || bar;
+        return onArm || r % 2 === 0;
       })
     ),
 
-  // Random but with guaranteed corridors
+  // Nearly full random — 95% fill
   random: (cols, rows) =>
-    Array.from({ length: rows }, (_, r) =>
-      Array.from({ length: cols }, (_, c) => {
-        if (r % 5 === 4) return false; // horizontal corridor
-        if (c === Math.floor(cols / 3) || c === Math.floor(cols * 2 / 3)) {
-          return r % 3 !== 0; // vertical channels with gaps
-        }
-        return Math.random() > 0.25;
-      })
+    Array.from({ length: rows }, () =>
+      Array.from({ length: cols }, () => Math.random() > 0.05)
     ),
 
-  // Concentric rings with gaps for ball to pass through
+  // Tight concentric rings — ball ping-pongs between rings
   ring: (cols, rows) => {
     const cx = (cols - 1) / 2;
     const cy = (rows - 1) / 2;
     return Array.from({ length: rows }, (_, r) =>
       Array.from({ length: cols }, (_, c) => {
         const dist = Math.sqrt(((c - cx) / cx * 5) ** 2 + ((r - cy) / cy * 5) ** 2);
-        const ring = Math.floor(dist) % 2 === 0;
-        // Cut gaps at cardinal directions for passages
-        const angle = Math.atan2(r - cy, c - cx);
-        const nearCardinal = Math.abs(Math.sin(angle * 2)) < 0.3;
-        return ring && !nearCardinal;
+        return Math.floor(dist * 2) % 4 !== 0;
       })
     );
   },
 
-  // Checkerboard — classic bounce pattern
+  // Staggered bricks — 75% fill, lots of bounce angles
   checkerboard: (cols, rows) =>
     Array.from({ length: rows }, (_, r) =>
-      Array.from({ length: cols }, (_, c) => (r + c) % 2 === 0)
+      Array.from({ length: cols }, (_, c) => !((r + c) % 4 === 0))
     ),
 
-  // Zigzag walls with gaps — ball bounces side to side
+  // Zigzag — dense alternating walls, ball bounces side to side
   zigzag: (cols, rows) =>
     Array.from({ length: rows }, (_, r) =>
       Array.from({ length: cols }, (_, c) => {
-        const period = 4;
+        const period = 6;
         const phase = Math.floor(r / period) % 2;
-        const wall = phase === 0 ? c < cols - 2 : c > 1;
-        return wall && r % period !== period - 1;
+        return phase === 0 ? c < cols - 1 : c > 0;
       })
     ),
 
-  // Spiral corridors — ball travels inward
+  // Spiral — narrow carved path through solid mass
   spiral: (cols, rows) => {
     const grid = Array.from({ length: rows }, () => Array(cols).fill(true));
-    // Carve spiral corridors
     let top = 1, bottom = rows - 2, left = 1, right = cols - 2;
     let dir = 0;
     while (top <= bottom && left <= right) {
-      if (dir === 0) { for (let c = left; c <= right; c++) grid[top][c] = false; top += 2; }
-      else if (dir === 1) { for (let r = top; r <= bottom; r++) grid[r][right] = false; right -= 2; }
-      else if (dir === 2) { for (let c = right; c >= left; c--) grid[bottom][c] = false; bottom -= 2; }
-      else { for (let r = bottom; r >= top; r--) grid[r][left] = false; left += 2; }
+      if (dir === 0) { for (let c = left; c <= right; c++) grid[top][c] = false; top += 4; }
+      else if (dir === 1) { for (let r = top; r <= bottom; r++) grid[r][right] = false; right -= 4; }
+      else if (dir === 2) { for (let c = right; c >= left; c--) grid[bottom][c] = false; bottom -= 4; }
+      else { for (let r = bottom; r >= top; r--) grid[r][left] = false; left += 4; }
       dir = (dir + 1) % 4;
     }
     return grid;
   },
 
-  // Cross with filled quadrants — ball bounces in the four chambers
+  // Cross — thin cross gap divides four dense quadrants
   cross: (cols, rows) => {
     const cx = Math.floor(cols / 2);
     const cy = Math.floor(rows / 2);
     return Array.from({ length: rows }, (_, r) =>
       Array.from({ length: cols }, (_, c) => {
-        // Cross gaps (corridors)
-        if (Math.abs(r - cy) <= 0 || Math.abs(c - cx) <= 0) return false;
-        return true;
+        return !(r === cy || c === cx);
       })
     );
   },
 
-  // Dense grid with scattered holes for unpredictable bounces
+  // Dense grid — almost full, tiny scattered holes
   "dense-grid": (cols, rows) =>
     Array.from({ length: rows }, (_, r) =>
       Array.from({ length: cols }, (_, c) => {
-        // Remove every Nth block in a staggered pattern
-        if (r % 3 === 0 && c % 4 === 1) return false;
-        if (r % 3 === 1 && c % 4 === 3) return false;
+        if (r % 7 === 0 && c % 7 === 0) return false;
         return true;
       })
     ),
 
-  // Arrow with bounce chambers in the head
+  // Arrow — filled arrowhead with wide shaft
   arrow: (cols, rows) => {
     const cx = (cols - 1) / 2;
     return Array.from({ length: rows }, (_, r) =>
@@ -146,27 +127,20 @@ const patternMap: Record<PatternName, PatternFn> = {
         const halfRow = Math.floor(rows / 2);
         if (r < halfRow) {
           const width = ((halfRow - r) / halfRow) * (cols / 2);
-          const inArrow = Math.abs(c - cx) <= width;
-          // Internal gaps in the arrowhead
-          return inArrow && !((r + c) % 3 === 0);
+          return Math.abs(c - cx) <= width;
         }
-        // Wider shaft with side walls
-        return Math.abs(c - cx) <= 2 || (r % 4 === 0 && c > 1 && c < cols - 2);
+        return Math.abs(c - cx) <= 4 || r % 2 === 0;
       })
     );
   },
 
-  // Tunnel with alternating walls — ball ping-pongs
+  // Tunnel — dense alternating walls, ball ping-pongs vertically
   tunnel: (cols, rows) =>
     Array.from({ length: rows }, (_, r) =>
       Array.from({ length: cols }, (_, c) => {
-        const section = Math.floor(r / 3) % 2;
-        if (r % 3 === 2) return false; // horizontal gap every 3 rows
-        if (section === 0) {
-          return c < cols - 3 || r % 3 === 0; // wall on right, gap on left
-        } else {
-          return c > 2 || r % 3 === 0; // wall on left, gap on right
-        }
+        const section = Math.floor(r / 5) % 2;
+        if (r % 8 === 7) return false;
+        return section === 0 ? c < cols - 1 : c > 0;
       })
     ),
 };
@@ -255,8 +229,9 @@ export class StarField {
     // HP: 1 base + wave bonus (later waves = tougher)
     const baseHp = 1 + waveIndex;
 
-    // Place star near center
-    const starRow = Math.floor(rows / 2) + Math.floor(Math.random() * 2 - 0.5);
+    // Place star: earlier worlds → closer to paddle (lower rows), later worlds → deeper
+    const starDepth = Math.min(0.3 + worldIndex * 0.15, 0.7);
+    const starRow = Math.floor(rows * starDepth) + Math.floor(Math.random() * 2 - 0.5);
     const starCol = Math.floor(cols / 2) + Math.floor(Math.random() * 2 - 0.5);
 
     // Generate indestructible mask

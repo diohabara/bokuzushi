@@ -30,7 +30,7 @@ export class HUD {
   ) {
     this.scoreEl.textContent = String(score);
     this.levelEl.textContent = String(level);
-    const tierNames = ["赤", "橙", "黄", "緑", "青", "藍", "紫", "黒"];
+    const tierNames = ["緑", "青", "黄", "橙", "赤", "藍", "紫", "黒"];
     this.colorTierEl.textContent =
       "\u2605".repeat(colorTier + 1) + " " + (tierNames[colorTier] ?? "");
     this.worldWaveEl.textContent = `${worldName} \u2015 ${wave}`;

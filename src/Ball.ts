@@ -16,7 +16,7 @@ export class Ball {
   vy = 0;
   speed = BALL_SPEED;
   active = false;
-  colorIndex = 0; // color strength tier (0=red weakest, 6=violet, 7=black strongest)
+  colorIndex = 0; // color strength tier (0=green weakest, 6=violet, 7=black strongest)
   private glow: THREE.PointLight;
   private scene: THREE.Scene;
 

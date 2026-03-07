@@ -56,12 +56,16 @@ export class Game {
   private world = 1;
   private wave = 1;
   private paddleBounces = 0;
+  private blocksDestroyed = 0;
+  private reachShown = false;
   private unlockedWorld = 1;
 
   // Combo
   private combo = 0;
   private comboTimer = 0;
   private readonly COMBO_TIMEOUT = 2.0;
+
+  private paused = false;
 
   private overlay: HTMLElement;
   private overlayTitle: HTMLElement;
@@ -71,6 +75,8 @@ export class Game {
   private worldSelectEl: HTMLElement;
   private rainbowBorderEl: HTMLElement;
   private shockwaveEl: HTMLElement;
+  private pauseBtn: HTMLElement;
+  private pauseOverlay: HTMLElement;
 
   private lastTime = 0;
   private mouseX = 0;
@@ -134,6 +140,23 @@ export class Game {
     this.worldSelectEl = document.getElementById("world-select")!;
     this.rainbowBorderEl = document.getElementById("rainbow-border")!;
     this.shockwaveEl = document.getElementById("shockwave")!;
+    this.pauseBtn = document.getElementById("pause-btn")!;
+    this.pauseOverlay = document.getElementById("pause-overlay")!;
+
+    this.pauseBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.togglePause();
+    });
+    this.pauseBtn.addEventListener("touchend", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.togglePause();
+    });
+    this.pauseOverlay.addEventListener("click", () => this.togglePause());
+    this.pauseOverlay.addEventListener("touchend", (e) => {
+      e.preventDefault();
+      this.togglePause();
+    });
 
     this.unlockedWorld = parseInt(localStorage.getItem("bokuzushi_unlocked") ?? "1", 10);
     this.createWorldButtons();
@@ -276,6 +299,17 @@ export class Game {
     this.camera.updateProjectionMatrix();
   }
 
+  private togglePause() {
+    if (this.state !== "playing") return;
+    this.paused = !this.paused;
+    if (this.paused) {
+      this.pauseOverlay.classList.add("show");
+    } else {
+      this.pauseOverlay.classList.remove("show");
+      this.lastTime = performance.now();
+    }
+  }
+
   private handleOverlayClick() {
     if (this.state === "start") return;
     if (this.state === "gameover") {
@@ -289,6 +323,8 @@ export class Game {
 
   private showStartScreen() {
     this.state = "start";
+    this.pauseBtn.classList.add("hidden");
+    this.pauseOverlay.classList.remove("show");
     this.updateWorldButtons();
     this.worldSelectEl.classList.add("show");
     this.showOverlay("星砕き", "ステージを選べ", "BOKUZUSHI");
@@ -352,6 +388,8 @@ export class Game {
     this.combo = 0;
     this.comboTimer = 0;
     this.paddleBounces = 0;
+    this.blocksDestroyed = 0;
+    this.reachShown = false;
     this.ball.speed = this.getBaseSpeed();
     this.ball.colorIndex = 0;
     this.ball.applyColor();
@@ -361,6 +399,9 @@ export class Game {
     this.particles.setWorld(this.world - 1);
     this.worldBg.generate(this.world - 1);
     this.state = "playing";
+    this.paused = false;
+    this.pauseOverlay.classList.remove("show");
+    this.pauseBtn.classList.remove("hidden");
     this.worldSelectEl.classList.remove("show");
     this.overlay.classList.add("hidden");
     this.updateHUD();
@@ -376,6 +417,8 @@ export class Game {
 
   private nextWave() {
     this.wave++;
+    this.blocksDestroyed = 0;
+    this.reachShown = false;
     this.ball.speed = Math.min(this.ball.speed + BALL_SPEED_INCREMENT, BALL_MAX_SPEED);
     this.starField.generate(this.wave - 1, this.world - 1);
     this.ball.reset(this.paddle.x);
@@ -391,6 +434,8 @@ export class Game {
     this.hitCount = 0;
     this.nextLevelHits = HITS_BASE;
     this.combo = 0;
+    this.blocksDestroyed = 0;
+    this.reachShown = false;
     this.ball.speed = this.getBaseSpeed();
     this.ball.colorIndex = 0;
     this.ball.applyColor();
@@ -472,6 +517,10 @@ export class Game {
     return { x: sx, y: sy };
   }
 
+  private pick(arr: string[]): string {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
   private addCombo() {
     this.combo++;
     this.comboTimer = this.COMBO_TIMEOUT;
@@ -480,47 +529,84 @@ export class Game {
       this.hud.showCombo(this.combo);
     }
 
+    // Combo level bonus: combos accelerate level-up
+    if (this.combo >= 3) {
+      this.hitCount += this.combo;
+      this.checkLevelUp();
+      this.updateHUD();
+    }
+
     if (this.combo === COMBO_ATSU) {
-      this.hud.showBigText("アツい!!", "atsu");
+      this.hud.showBigText(this.pick(["アツい!!", "チャンス!", "来てる!"]), "atsu");
       this.multiFlash(3, 80, ["#ff8800", "#ffff00", "#ff4400"]);
       this.shake(0.4, 0.3);
       this.rainbowFlash(1.0);
       this.screenZoom(1.05);
     } else if (this.combo === COMBO_GEKIATSU) {
-      this.hud.showBigText("激アツ!!", "gekiatsu");
+      this.hud.showBigText(this.pick(["激アツ!!", "魚群出現!!", "赤保留!!"]), "gekiatsu");
       this.multiFlash(6, 70, ["#ff0000", "#ff8800", "#ffff00", "#ff0000", "#ff4400", "#ffaa00"]);
       this.shake(0.6, 0.4);
       this.rainbowFlash(2.5);
       this.startSlowMotion(0.3);
       this.screenZoom(1.1);
     } else if (this.combo === COMBO_KAKUHEN) {
-      this.hud.showBigText("確変突入!!", "kakuhen");
+      this.hud.showBigText(this.pick(["確変突入!!", "金保留!!", "確定演出!!"]), "kakuhen");
       this.multiFlash(12, 50, ["#ff0000", "#ff8800", "#ffff00", "#00ff00", "#0088ff", "#ff00ff"]);
       this.shake(0.8, 0.6);
       this.rainbowFlash(4.0);
       this.startSlowMotion(0.5);
       this.screenZoom(1.15);
     } else if (this.combo === COMBO_OOATARI) {
-      this.hud.showBigText("大当たり!!!", "kakuhen");
+      this.hud.showBigText(this.pick(["大当たり!!!", "V入賞!!!", "プレミア!!!"]), "kakuhen");
       this.multiFlash(20, 40, ["#ff0000", "#ffffff", "#ff8800", "#ffff00", "#00ff00", "#0088ff", "#ff00ff"]);
       this.shake(1.0, 0.8);
       this.rainbowFlash(6.0);
       this.startSlowMotion(0.8);
       this.screenZoom(1.2);
     } else if (this.combo === COMBO_CHO_GEKIATSU) {
-      this.hud.showBigText("超激アツ!!!!", "kakuhen");
+      this.hud.showBigText(this.pick(["超激アツ!!!!", "全回転!!!!", "レインボー!!!!"]), "kakuhen");
       this.multiFlash(30, 30, ["#ff0000", "#ffffff", "#ff8800", "#ffff00", "#00ff00", "#0088ff", "#ff00ff", "#ffffff"]);
       this.shake(1.5, 1.0);
       this.rainbowFlash(10.0);
       this.startSlowMotion(1.0);
       this.screenZoom(1.25);
     } else if (this.combo >= COMBO_FEVER) {
-      this.hud.showBigText("F E V E R !!!!", "kakuhen");
+      this.hud.showBigText(this.pick(["F E V E R !!!!", "∞ F E V E R ∞", "超 絶 F E V E R"]), "kakuhen");
       this.multiFlash(40, 25, ["#ff0000", "#ffffff", "#ff8800", "#ffff00", "#00ff00", "#0088ff", "#ff00ff", "#ffffff"]);
       this.shake(2.0, 1.5);
       this.rainbowFlash(15.0);
       this.startSlowMotion(1.5);
       this.screenZoom(1.3);
+    }
+  }
+
+  private onBlockDestroyed() {
+    this.blocksDestroyed++;
+    const n = this.blocksDestroyed;
+    if (n === 10) {
+      this.hud.showBigText("好調!", "atsu");
+    } else if (n === 30) {
+      this.hud.showBigText("絶好調!!", "atsu");
+      this.shake(0.3, 0.2);
+    } else if (n === 60) {
+      this.hud.showBigText(this.pick(["無双!!", "暴れ打ち!!"]), "gekiatsu");
+      this.shake(0.5, 0.3);
+      this.rainbowFlash(1.5);
+    } else if (n === 100) {
+      this.hud.showBigText("破壊神降臨!!!", "kakuhen");
+      this.shake(0.8, 0.5);
+      this.rainbowFlash(3.0);
+      this.screenZoom(1.1);
+    }
+
+    // リーチ: remaining non-indestructible blocks (excluding star)
+    const alive = this.starField.aliveCount;
+    if (!this.reachShown && alive <= 5 && alive > 0) {
+      this.reachShown = true;
+      this.hud.showBigText("リーチ!!", "gekiatsu");
+      this.shake(0.5, 0.3);
+      this.rainbowFlash(2.0);
+      this.multiFlash(4, 80, ["#ffd700", "#ffffff", "#ff8800", "#ffd700"]);
     }
   }
 
@@ -559,19 +645,20 @@ export class Game {
 
   private onBlockHit() {
     this.hitCount++;
-    if (this.hitCount >= this.nextLevelHits) {
-      if (this.ball.colorIndex >= BALL_MAX_TIER) return;
+    this.checkLevelUp();
+  }
+
+  private checkLevelUp() {
+    while (this.hitCount >= this.nextLevelHits && this.ball.colorIndex < BALL_MAX_TIER) {
+      this.hitCount -= this.nextLevelHits;
       this.level++;
-      this.hitCount = 0;
       this.nextLevelHits = HITS_BASE + (this.level - 1) * HITS_GROWTH;
-      // Promote ball color to next tier
       this.ball.colorIndex = Math.min(this.ball.colorIndex + 1, BALL_MAX_TIER);
       this.ball.applyColor();
       this.ball.updateGlow();
       this.hud.updateBallColor(this.getBallColorHex());
       this.hud.showLevelUp(this.level);
       if (this.ball.colorIndex === BALL_MAX_TIER) {
-        // Black awakening - special effects
         this.hud.showBigText("覚醒!!黒", "kakuhen");
         this.multiFlash(12, 50, ["#111111", "#ffffff", "#9933cc", "#ffffff", "#111111", "#8800ff"]);
         this.shake(1.2, 0.8);
@@ -587,51 +674,51 @@ export class Game {
   }
 
   private onStarDestroyed(sx: number, sy: number) {
-    this.particles.starBurst(sx, sy);
-    // Fewer paddle bounces = higher star bonus (speed bonus)
-    const starBonus = Math.max(100, 2000 - this.paddleBounces * 30);
-    const points = starBonus;
-    this.score += points;
+    // Immediately stop gameplay — prevent game over after star hit
+    this.ball.active = false;
 
-    // MEGA effects - star destroyed
+    this.particles.starBurst(sx, sy);
+    const starBonus = Math.max(100, 2000 - this.paddleBounces * 30);
+    this.score += starBonus;
+
+    // MEGA effects
     this.shake(1.5, 1.0);
     this.multiFlash(15, 60, ["#ffd700", "#ffffff", "#ff8800", "#ffd700", "#ffffff", "#ffee00", "#ff4400", "#ff00ff"]);
     this.rainbowFlash(5.0);
-    this.startSlowMotion(1.5);
     this.screenZoom(1.3);
 
     const screenPos = this.worldToScreen(sx, sy);
     this.triggerShockwave(screenPos.x, screenPos.y);
-    this.hud.showScorePopup(screenPos.x, screenPos.y, points);
-    this.hud.showBigText("★ 星砕き ★", "kakuhen");
+    this.hud.showScorePopup(screenPos.x, screenPos.y, starBonus);
+    this.hud.showBigText("★ V入賞 ★", "kakuhen");
     this.updateHUD();
 
     const themeName = this.getWorldName();
-    setTimeout(() => {
-      if (this.state !== "playing") return;
-      if (this.wave >= WAVES_PER_WORLD) {
-        this.state = "worldclear";
-        // Unlock next world
-        if (this.world >= this.unlockedWorld && this.world < MAX_WORLDS) {
-          this.unlockedWorld = this.world + 1;
-          localStorage.setItem("bokuzushi_unlocked", String(this.unlockedWorld));
-          this.updateWorldButtons();
-        }
-        this.saveScore();
+    if (this.wave >= WAVES_PER_WORLD) {
+      this.state = "worldclear";
+      if (this.world >= this.unlockedWorld && this.world < MAX_WORLDS) {
+        this.unlockedWorld = this.world + 1;
+        localStorage.setItem("bokuzushi_unlocked", String(this.unlockedWorld));
+        this.updateWorldButtons();
+      }
+      this.saveScore();
+      setTimeout(() => {
         this.showOverlay(
           `${themeName} 制覇!!`,
           `得点: ${this.score}`,
           "タップで次へ"
         );
-      } else {
-        this.state = "waveclear";
+      }, 2000);
+    } else {
+      this.state = "waveclear";
+      setTimeout(() => {
         this.showOverlay(
           `第${this.wave}波 突破!!`,
           `得点: ${this.score}`,
           "タップで次へ"
         );
-      }
-    }, 2000);
+      }, 2000);
+    }
   }
 
   private checkBallBlocks() {
@@ -662,6 +749,7 @@ export class Game {
           this.onBlockHit();
           points = block.maxHp * 10;
           block.destroy();
+          this.onBlockDestroyed();
           this.particles.burst(sx, sy, color);
           this.score += points;
           this.addCombo();
@@ -669,12 +757,17 @@ export class Game {
           this.flashScreen("rgba(255,255,255,0.6)", 150, 0.4);
           const screenPos = this.worldToScreen(sx, sy);
           this.triggerShockwave(screenPos.x, screenPos.y);
+          // Penetration callout (20% chance)
+          if (Math.random() < 0.2) {
+            this.hud.showBigText(this.pick(["貫通!!", "突破!", "粉砕!", "一閃!"]), "atsu");
+          }
         } else if (!block.indestructible && this.ball.colorIndex === block.colorIndex) {
           // Same tier → normal destroy (bounce)
           this.onBlockHit();
           const destroyed = block.hit(block.hp);
           if (destroyed) {
             points = block.maxHp * 10;
+            this.onBlockDestroyed();
             this.particles.burst(sx, sy, color);
             this.score += points;
             this.addCombo();
@@ -691,6 +784,7 @@ export class Game {
           if (destroyed) {
             this.onBlockHit();
             points = block.maxHp * 10;
+            this.onBlockDestroyed();
             this.particles.burst(sx, sy, color);
             this.score += points;
             this.addCombo();
@@ -805,6 +899,10 @@ export class Game {
 
   private loop = () => {
     requestAnimationFrame(this.loop);
+    if (this.paused) {
+      this.renderer.render(this.scene, this.camera);
+      return;
+    }
     const now = performance.now();
     const dt = Math.min((now - this.lastTime) / 1000, 0.05);
     this.lastTime = now;
