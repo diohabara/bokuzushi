@@ -56,9 +56,7 @@ export class Block {
     this.mesh = new THREE.Mesh(geo, mat);
     this.mesh.position.set(x, y, 0);
 
-    if (!this.indestructible) {
-      this.createHpBar();
-    }
+    this.createHpBar();
   }
 
   private createHpBar() {
