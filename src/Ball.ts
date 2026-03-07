@@ -9,6 +9,52 @@ import {
   BALL_COLOR_BLACK,
 } from "./constants";
 
+const LAUNCH_BASE_ANGLE = Math.PI / 2;
+const LAUNCH_SPREAD = 0.6;
+const DEFAULT_AVOID_WINDOW = 0.22;
+const MIN_LAUNCH_SEGMENT = 0.02;
+
+export interface BallLaunchOptions {
+  avoidAngle?: number;
+  avoidWindow?: number;
+}
+
+function randomBetween(min: number, max: number) {
+  return min + Math.random() * (max - min);
+}
+
+function normalizeAngleDelta(angle: number) {
+  return Math.atan2(Math.sin(angle), Math.cos(angle));
+}
+
+export function selectLaunchAngle(options: BallLaunchOptions = {}) {
+  const minAngle = LAUNCH_BASE_ANGLE - LAUNCH_SPREAD / 2;
+  const maxAngle = LAUNCH_BASE_ANGLE + LAUNCH_SPREAD / 2;
+  const { avoidAngle, avoidWindow = DEFAULT_AVOID_WINDOW } = options;
+
+  if (avoidAngle === undefined || avoidWindow <= 0) {
+    return randomBetween(minAngle, maxAngle);
+  }
+
+  const adjustedAvoidAngle =
+    LAUNCH_BASE_ANGLE + normalizeAngleDelta(avoidAngle - LAUNCH_BASE_ANGLE);
+  const leftMax = Math.min(maxAngle, adjustedAvoidAngle - avoidWindow);
+  const rightMin = Math.max(minAngle, adjustedAvoidAngle + avoidWindow);
+  const leftSpan = Math.max(0, leftMax - minAngle);
+  const rightSpan = Math.max(0, maxAngle - rightMin);
+  const totalSpan = leftSpan + rightSpan;
+
+  if (totalSpan < MIN_LAUNCH_SEGMENT) {
+    return randomBetween(minAngle, maxAngle);
+  }
+
+  const laneRoll = Math.random() * totalSpan;
+  if (laneRoll < leftSpan) {
+    return randomBetween(minAngle, leftMax);
+  }
+  return randomBetween(rightMin, maxAngle);
+}
+
 export class Ball {
   mesh: THREE.Mesh;
   trail: THREE.Mesh[] = [];
@@ -57,9 +103,9 @@ export class Ball {
     }
   }
 
-  launch() {
+  launch(options: BallLaunchOptions = {}) {
     if (this.active) return;
-    const angle = Math.PI / 2 + (Math.random() - 0.5) * 0.6;
+    const angle = selectLaunchAngle(options);
     this.vx = Math.cos(angle) * this.speed;
     this.vy = Math.sin(angle) * this.speed;
     this.active = true;

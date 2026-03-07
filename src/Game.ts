@@ -73,6 +73,7 @@ export class Game {
 
   private paused = false;
   private coarsePointer = false;
+  private initialServePending = false;
 
   private overlay: HTMLElement;
   private overlayTitle: HTMLElement;
@@ -328,8 +329,22 @@ export class Game {
     }
 
     if (this.state === "playing" && !this.ball.active && !this.paused) {
-      this.ball.launch();
+      this.ball.launch({
+        avoidAngle: this.initialServePending ? this.getInitialServeAvoidAngle() : undefined,
+      });
+      this.initialServePending = false;
     }
+  }
+
+  private getInitialServeAvoidAngle() {
+    const star = this.starField.star;
+    if (!star?.alive) return undefined;
+
+    const dx = star.mesh.position.x - this.ball.mesh.position.x;
+    const dy = star.mesh.position.y - this.ball.mesh.position.y;
+    if (dy <= 0) return undefined;
+
+    return Math.atan2(dy, dx);
   }
 
   private handleOverlayAction() {
@@ -434,6 +449,7 @@ export class Game {
 
   private showStartScreen() {
     this.state = "start";
+    this.initialServePending = false;
     this.pauseBtn.classList.add("hidden");
     this.pauseOverlay.classList.remove("show");
     this.pauseOverlay.setAttribute("aria-hidden", "true");
@@ -575,6 +591,7 @@ export class Game {
     this.particles.setWorld(this.world - 1);
     this.worldBg.generate(this.world - 1);
     this.ball.reset(this.paddle.x, this.paddle.y);
+    this.initialServePending = true;
     this.mouseX = this.paddle.x;
     this.state = "playing";
     this.paused = false;
@@ -593,6 +610,7 @@ export class Game {
     this.ball.speed = Math.min(this.ball.speed + BALL_SPEED_INCREMENT, BALL_MAX_SPEED);
     this.starField.generate(this.wave - 1, this.world - 1);
     this.ball.reset(this.paddle.x, this.paddle.y);
+    this.initialServePending = true;
     this.mouseX = this.paddle.x;
     this.state = "playing";
     this.hideOverlay();
@@ -618,6 +636,7 @@ export class Game {
     this.particles.setWorld(this.world - 1);
     this.worldBg.generate(this.world - 1);
     this.ball.reset(this.paddle.x, this.paddle.y);
+    this.initialServePending = true;
     this.mouseX = this.paddle.x;
     this.state = "playing";
     this.hideOverlay();
