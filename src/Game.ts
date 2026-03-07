@@ -279,6 +279,7 @@ export class Game {
     });
 
     window.addEventListener("touchmove", (event) => {
+      if (!this.shouldCaptureTouchInput()) return;
       event.preventDefault();
       if (event.touches.length > 0) {
         this.mouseX = this.screenToWorldX(event.touches[0].clientX);
@@ -295,6 +296,10 @@ export class Game {
     });
     window.addEventListener("keydown", (event) => this.handleKeyDown(event));
     window.addEventListener("keyup", this.handleKeyUp);
+  }
+
+  private shouldCaptureTouchInput() {
+    return this.state === "playing" && !this.paused && this.overlay.classList.contains("hidden");
   }
 
   private handleKeyDown(event: KeyboardEvent) {
