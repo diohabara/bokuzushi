@@ -5,7 +5,7 @@ import { StarField } from "./StarField";
 import { HUD } from "./HUD";
 import { Particles } from "./Particles";
 import { WorldBackground } from "./WorldBackground";
-import { COMBO_CELEBRATION_COPY, FEVER_TRIGGER_COPY } from "./gameContent";
+import { COMBO_CELEBRATION_COPY, DISPLAY_TITLE, FEVER_TRIGGER_COPY, formatLayerLabel } from "./gameContent";
 import {
   GAME_WIDTH,
   GAME_HEIGHT,
@@ -191,7 +191,7 @@ export class Game {
       const btn = document.createElement("button");
       btn.className = "world-btn";
       btn.type = "button";
-      btn.setAttribute("aria-label", `${theme.name} のステージ1から開始`);
+      btn.setAttribute("aria-label", `${theme.name} の${formatLayerLabel(1)}から始める`);
       btn.style.borderColor = theme.btnColor;
       btn.style.background = theme.btnBg;
 
@@ -493,7 +493,7 @@ export class Game {
     this.pauseOverlay.setAttribute("aria-hidden", "true");
     this.worldSelectEl.classList.add("show");
     this.updateWorldButtons();
-    this.showOverlay("星砕き", "座る章を選べ", "流れが良い席から入れ", null, null);
+    this.showOverlay(DISPLAY_TITLE, "銀河を選べ", "当たり星まで通せ", null, null);
     this.showRanking();
   }
 
@@ -515,8 +515,8 @@ export class Game {
     }
     this.overlay.dataset.mode = isStartScreen ? "start" : "interstitial";
     this.overlayPanelKicker.textContent = isStartScreen
-      ? "解放中の章 / OPEN BOARD"
-      : "次の一手 / PUSH TO ADVANCE";
+      ? "解放中の銀河"
+      : "次の巡目";
     this.overlayTitle.textContent = title;
     this.overlayMessage.textContent = message;
     this.overlaySub.textContent = sub;
@@ -1036,7 +1036,7 @@ export class Game {
     const screenPos = this.worldToScreen(sx, sy);
     this.triggerShockwave(screenPos.x, screenPos.y);
     this.hud.showScorePopup(screenPos.x, screenPos.y, Math.round(starBonus * getScoreMultiplier(this.progression)));
-    this.hud.showBigText("★ V入賞 ★", "kakuhen");
+    this.hud.showBigText("★ 当たり星到達 ★", "kakuhen");
     this.vibrate([30, 20, 30, 20, 70]);
     this.updateHUD();
 
@@ -1054,22 +1054,22 @@ export class Game {
       setTimeout(() => {
         if (this.world >= MAX_WORLDS) {
           this.showOverlay(
-            "全章制覇",
+            "全銀河到達",
             `得点: ${this.score}`,
-            `${themeName} を抜けても、まだハイスコアが残ってる`,
-            "ハイスコアへ",
+            `${themeName} を抜けても、まだざわりが残っている`,
+            "記録を見る",
             () => this.showStartScreen(),
-            "章選択",
+            "銀河選択",
             () => this.showStartScreen()
           );
         } else {
           this.showOverlay(
-            `${themeName} 制覇!!`,
+            `${themeName} 銀河抜け`,
             `得点: ${this.score}`,
-            "次の島がもう光ってる",
-            "次の章へ",
+            "次の銀河がもう近い",
+            "次の銀河へ",
             () => this.nextWorld(),
-            "章選択",
+            "銀河選択",
             () => this.showStartScreen()
           );
         }
@@ -1078,12 +1078,12 @@ export class Game {
       this.state = "waveclear";
       setTimeout(() => {
         this.showOverlay(
-          `第 ${this.wave} 面 抜け`,
+          `${formatLayerLabel(this.wave)} 到達`,
           `得点: ${this.score}`,
-          "まだ席を立つには早い",
-          "次の面へ",
+          "まだ先へ通せる",
+          "次の巡目へ",
           () => this.nextWave(),
-          "章選択",
+          "銀河選択",
           () => this.showStartScreen()
         );
       }, 1400);
@@ -1194,12 +1194,12 @@ export class Game {
         this.vibrate([40, 30, 60]);
         setTimeout(() => {
           this.showOverlay(
-            "ゲームオーバー",
+            "飲まれた",
             `得点: ${this.score}`,
-            "座り直して、流れを戻す",
-            "もう一度",
+            "返し板を戻して、もう一度通せ",
+            "もう一度通す",
             () => this.startNewGame(this.world),
-            "章選択",
+            "銀河選択",
             () => this.showStartScreen()
           );
         }, 500);

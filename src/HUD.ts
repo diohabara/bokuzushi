@@ -2,10 +2,10 @@ import { FEVER_MAX } from "./gameRules";
 import {
   BALL_FINAL_TIER,
   FEVER_STATE_COPY,
+  formatLayerLabel,
   getComboLabelCopy,
   TIER_CONTENT,
 } from "./gameContent";
-import { WAVES_PER_WORLD } from "./constants";
 
 export class HUD {
   private scoreEl: HTMLElement;
@@ -51,9 +51,9 @@ export class HUD {
     this.levelEl.textContent = String(level);
     const tierNames = [...TIER_CONTENT.map((tier) => tier.label), BALL_FINAL_TIER.label];
     this.colorTierEl.textContent = "\u2605".repeat(colorTier + 1) + " " + (tierNames[colorTier] ?? "");
-    this.worldWaveEl.textContent = `${worldName} ${wave}/${WAVES_PER_WORLD}`;
+    this.worldWaveEl.textContent = `${worldName} ${formatLayerLabel(wave)}`;
     if (this.mobileWaveEl) {
-      this.mobileWaveEl.textContent = `${worldName} ${wave}/${WAVES_PER_WORLD}`;
+      this.mobileWaveEl.textContent = `${worldName} ${formatLayerLabel(wave)}`;
     }
 
     if (score !== this.prevScore) {
@@ -87,7 +87,7 @@ export class HUD {
   }
 
   showLevelUp(level: number) {
-    this.levelUpEl.textContent = `Lv.${level} 覚醒!!`;
+    this.levelUpEl.textContent = `段位${level} 覚醒!!`;
     this.levelUpEl.classList.remove("show");
     void this.levelUpEl.offsetWidth;
     this.levelUpEl.classList.add("show");

@@ -9,7 +9,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>星砕き - BOKUZUSHI</title>
+    <title>ざわり銀河</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -361,7 +361,7 @@
       }
 
       .dialog-card::before {
-        content: "小休止 / FLOW HOLD";
+        content: "小休止";
         position: absolute;
         top: 14px;
         left: 18px;
@@ -621,7 +621,7 @@
       }
 
       .world-btn::before {
-        content: "OPEN";
+        content: "解放";
         position: absolute;
         top: 10px;
         right: 10px;
@@ -643,7 +643,7 @@
       }
 
       .world-btn.locked::before {
-        content: "LOCK";
+        content: "封鎖";
         color: rgba(255, 255, 255, 0.55);
       }
 
@@ -1113,12 +1113,12 @@
           <span class="hud-value" id="hud-level">1</span>
         </div>
         <div class="hud-item fever-top">
-          <span class="hud-label">沸点</span>
+          <span class="hud-label">ざわり</span>
           <div class="fever-meter">
             <div class="fever-track">
               <div class="fever-fill" id="hud-fever-fill"></div>
             </div>
-            <span class="fever-state" id="hud-fever-state" data-active="false">仕込み</span>
+            <span class="fever-state" id="hud-fever-state" data-active="false">気配</span>
           </div>
         </div>
         <div class="hud-item">
@@ -1129,18 +1129,18 @@
           </div>
         </div>
         <div class="hud-item">
-          <span class="hud-value world-info" id="hud-world">桜花 1/3</span>
+          <span class="hud-value world-info" id="hud-world">桜花 1巡目</span>
         </div>
       </div>
     </div>
 
     <div id="mobile-dock" aria-hidden="true">
-      <div class="mobile-dock-wave" id="mobile-wave">桜花 1/3</div>
+      <div class="mobile-dock-wave" id="mobile-wave">桜花 1巡目</div>
       <div class="fever-meter mobile-dock-fever">
         <div class="fever-track">
           <div class="fever-fill" id="mobile-fever-fill"></div>
         </div>
-        <span class="fever-state" id="mobile-fever-state" data-active="false">仕込み</span>
+        <span class="fever-state" id="mobile-fever-state" data-active="false">気配</span>
       </div>
     </div>
 
@@ -1157,13 +1157,13 @@
     <div id="pause-overlay" aria-hidden="true">
       <div class="dialog-card">
         <h2>小休止</h2>
-        <p>まだ流れは残ってる。焦らず、次の一打だけ決める。</p>
+        <p>まだ流れは残っている。焦らず、次の一打だけ返せ。</p>
         <div class="dialog-actions">
           <button id="pause-resume-btn" class="action-button primary" type="button">
             再開
           </button>
           <button id="pause-world-select-btn" class="action-button secondary" type="button">
-            章選択
+            銀河選択
           </button>
         </div>
       </div>
@@ -1179,17 +1179,17 @@
     <div id="overlay" data-mode="start">
       <div class="overlay-stack">
         <div class="overlay-hero">
-          <div class="overlay-kicker">電脳遊技盤 / SATURDAY ARCADE</div>
-          <h1 id="overlay-title">星砕き</h1>
-          <p id="overlay-message">章を選べ</p>
-          <p class="sub" id="overlay-sub">BOKUZUSHI</p>
+          <div class="overlay-kicker">遊技宇宙案内</div>
+          <h1 id="overlay-title">ざわり銀河</h1>
+          <p id="overlay-message">銀河を選べ</p>
+          <p class="sub" id="overlay-sub">当たり星まで通せ</p>
         </div>
 
         <div class="overlay-main">
           <section class="chapter-panel">
-            <div class="panel-kicker" id="overlay-panel-kicker">解放中の章 / OPEN BOARD</div>
+            <div class="panel-kicker" id="overlay-panel-kicker">解放中の銀河</div>
             <div id="world-select" class="show">
-              <div id="world-select-label">CHAPTER SELECT / 好きな島から座れ</div>
+              <div id="world-select-label">潜る銀河を選べ</div>
             </div>
 
             <div class="dialog-actions">
@@ -1197,23 +1197,23 @@
                 次へ
               </button>
               <button id="overlay-secondary-action" class="action-button secondary overlay-corner-button hidden" type="button">
-                章選択
+                銀河選択
               </button>
             </div>
           </section>
 
           <aside class="overlay-rail">
-            <div class="rail-kicker">遊び方 / ONE BALL GUIDE</div>
+            <div class="rail-kicker">遊び方</div>
             <div class="overlay-guides">
               <div class="color-hint">
-                ブロックを壊して段位を上げ<br />
+                障壁を穿って段位を上げ<br />
                 <span style="background:#33cc66"></span><span style="background:#3388ff"></span><span style="background:#ffcc00"></span><span style="background:#ff8822"></span><span style="background:#ff3344"></span><span style="background:#4444cc"></span><span style="background:#9933cc"></span><br />
-                強い色で貫通し、沸騰街道で盤面を飲み込め
+                強い玉色で貫通し、アガりで盤ごと飲み込め
               </div>
 
               <div class="controls">
-                マウス / タッチ / ← → で移動。クリック / タップ / Enter / Space で発射。<br />
-                Escape でポーズ。沸点ゲージが満ちると沸騰街道へ入り、その間は得点 2 倍。
+                マウス / タッチ / ← → で返し板移動。クリック / タップ / Enter / Space で発射。<br />
+                Escape で小休止。ざわりが満ちるとアガりへ入り、その間は得点 2 倍。
               </div>
             </div>
 

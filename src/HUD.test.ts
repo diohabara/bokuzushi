@@ -28,7 +28,7 @@ describe("HUD", () => {
     const state = document.getElementById("hud-fever-state");
 
     expect(fill?.style.transform).toBe("scaleX(0.5)");
-    expect(state?.textContent).toBe("仕込み");
+    expect(state?.textContent).toBe("気配");
   });
 
   it("Fever 中は状態ラベルを切り替える", () => {
@@ -36,7 +36,7 @@ describe("HUD", () => {
     hud.updateFever(100, true);
 
     const state = document.getElementById("hud-fever-state");
-    expect(state?.textContent).toBe("沸騰");
+    expect(state?.textContent).toBe("アガり");
     expect(state?.dataset.active).toBe("true");
   });
 
@@ -66,7 +66,7 @@ describe("HUD", () => {
     const hud = new HUD();
     hud.showCombo(16);
 
-    expect(document.getElementById("combo")?.textContent).toBe("16連 島ごと前のめり!!!");
+    expect(document.getElementById("combo")?.textContent).toBe("16連 銀河ごと前のめり!!!");
   });
 
   it("モバイルドックにも FEVER と wave を反映する", () => {
@@ -74,7 +74,7 @@ describe("HUD", () => {
     hud.update(1200, 3, 2, 1, 2, "桜花");
     hud.updateFever(80, false);
 
-    expect(document.getElementById("mobile-wave")?.textContent).toBe("桜花 2/3");
+    expect(document.getElementById("mobile-wave")?.textContent).toBe("桜花 2巡目");
     expect(document.getElementById("mobile-fever-fill")?.style.transform).toBe("scaleX(0.8)");
   });
 });

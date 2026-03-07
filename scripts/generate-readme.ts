@@ -24,9 +24,9 @@ async function main() {
 
   const colors = [...TIER_CONTENT.map((tier) => tier.label), BALL_FINAL_TIER.label].join(" < ");
   const worldTable = [
-    "| ワールド | テーマ | ブロック色範囲 |",
-    "|---|---|---|",
-    ...WORLD_CONTENT.map((world) => `| ${world.name} | ${world.docsTheme} | ${world.docsRange} |`),
+    "| 銀河 | 障り札色範囲 |",
+    "|---|---|",
+    ...WORLD_CONTENT.map((world) => `| ${world.name} | ${world.docsRange} |`),
   ].join("\n");
 
   const gameplaySection = [
@@ -35,11 +35,11 @@ async function main() {
     `- **色の強さ**: ${colors}`,
     ...README_RULES.map((rule) => `- ${rule}`),
     "",
-    "## ワールド",
+    "## 銀河",
     "",
     worldTable,
     "",
-    "前のワールドを制覇すると次が解放される。",
+    "前の銀河を抜けると次が開く。",
   ].join("\n");
 
   const commandsSection = [

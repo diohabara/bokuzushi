@@ -12,6 +12,14 @@ export interface WorldContent {
   docsTheme: string;
 }
 
+export const DISPLAY_TITLE = "ざわり銀河";
+
+const LAYER_LABELS = ["1巡目", "2巡目", "3巡目"] as const;
+
+export function formatLayerLabel(layer: number): string {
+  return LAYER_LABELS[layer - 1] ?? `第${layer}巡目`;
+}
+
 export const TIER_CONTENT: TierContent[] = [
   { key: "green", label: "緑", hex: 0x33cc66 },
   { key: "blue", label: "青", hex: 0x3388ff },
@@ -29,9 +37,9 @@ export const BALL_FINAL_TIER = {
 };
 
 export const FEVER_STATE_COPY = {
-  charge: "仕込み",
+  charge: "気配",
   hot: "ざわり",
-  active: "沸騰",
+  active: "アガり",
 } as const;
 
 const COMBO_COPY_NORMAL = [
@@ -48,7 +56,7 @@ const COMBO_COPY_HOT = [
   "右打ちの顔!!",
   "当たりの癖!!",
   "先バレ本番!!",
-  "島がざわつく!!",
+  "銀河がざわつく!!",
 ] as const;
 
 const COMBO_COPY_MAJOR = [
@@ -59,7 +67,7 @@ const COMBO_COPY_MAJOR = [
 ] as const;
 
 const COMBO_COPY_JACKPOT = [
-  "島ごと前のめり!!!",
+  "銀河ごと前のめり!!!",
   "やめ時が溶けた!!!",
   "理性の保留切れ!!!",
   "もう閉店までこれ!!!",
@@ -77,8 +85,8 @@ export function getComboLabelCopy(count: number): string {
 }
 
 export const FEVER_TRIGGER_COPY = [
-  "沸騰街道!!",
-  "脳汁開門!!",
+  "アガり突入!!",
+  "ざわり満ちた!!",
   "当たりの川が来る!!",
 ];
 
@@ -90,7 +98,7 @@ export const COMBO_CELEBRATION_COPY = {
   ],
   gekiatsu: [
     "脳が先に当たってる!!",
-    "島がざわつく!!",
+    "銀河がざわつく!!",
     "赤い気配が濃い!!",
   ],
   kakuhen: [
@@ -104,7 +112,7 @@ export const COMBO_CELEBRATION_COPY = {
     "もう止まらん!!!",
   ],
   choGekiatsu: [
-    "島ごとこっち見てる!!!",
+    "銀河ごとこっち見てる!!!",
     "やめ時が逃げた!!!",
     "当たりの巣に入った!!!",
   ],
@@ -154,20 +162,20 @@ export const WORLD_CONTENT: WorldContent[] = [
 ];
 
 export const README_RULES = [
-  "ボールの色がブロックより強いと貫通破壊し、同色以下では反射しながら削る。",
-  "ブロック命中で段位が上がり、ボールの色が昇格する。",
+  "銀珠の玉色が障り札より強いと貫通破壊し、同色以下では反射しながら割る。",
+  "障り札命中で段位が上がり、銀珠の玉色が昇格する。",
   "攻撃力は `基礎 1 + 玉色ティア + floor((Lv - 1) / 2)` で上がる。",
-  "連続破壊で連ツキが伸び、沸点ゲージが溜まる。",
-  "沸点ゲージが 100 に達すると一定時間 `沸騰街道` に入り、得点が 2 倍になる。",
-  "沸騰中は得点倍率と演出が強化されるが、可読性は維持する。",
-  "星破壊ボーナスはパドル反射回数が少ないほど高い。",
-  "ステージが進むほど星は奥へ下がり、周辺ブロックも壊しにくくなる。",
-  "モバイル対応端末では、沸騰・覚醒・星破壊・ゲームオーバー時に短い振動が入る。",
+  "連続破壊で連なりが伸び、ざわりが溜まる。",
+  "ざわりが 100 に達すると一定時間 `アガり` に入り、得点が 2 倍になる。",
+  "アガり中は得点倍率と演出が強化されるが、可読性は維持する。",
+  "当たり星到達ボーナスは返し板反射回数が少ないほど高い。",
+  "巡目が深くなるほど当たり星は奥へ沈み、周辺障り札も割りにくくなる。",
+  "モバイル対応端末では、アガり・覚醒・当たり星到達・飲まれた時に短い振動が入る。",
 ];
 
 export const CONTROL_HINTS = [
-  "マウス / タッチ: パドル移動",
-  "PC では ← / →: パドル移動",
+  "マウス / タッチ: 返し板移動",
+  "PC では ← / →: 返し板移動",
   "クリック / タップ / Enter / Space: 発射・決定",
-  "Escape: ポーズ切替",
+  "Escape: 小休止",
 ];
