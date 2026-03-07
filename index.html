@@ -318,6 +318,39 @@
         #world-select { gap: 8px; }
       }
 
+      /* ─── Locked world button ─── */
+      .world-btn.locked {
+        cursor: not-allowed;
+        filter: grayscale(1);
+      }
+
+      /* ─── Ranking ─── */
+      #ranking {
+        margin-top: 16px;
+        width: 100%;
+        max-width: 360px;
+        text-align: center;
+      }
+      .ranking-title {
+        font-size: 16px;
+        font-weight: 900;
+        letter-spacing: 4px;
+        opacity: 0.6;
+        margin-bottom: 6px;
+        font-family: "Orbitron", sans-serif;
+      }
+      .ranking-row {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        font-size: 14px;
+        line-height: 1.8;
+        opacity: 0.7;
+      }
+      .ranking-rank { width: 24px; text-align: right; opacity: 0.5; }
+      .ranking-score { font-weight: 900; color: #ffd700; min-width: 60px; }
+      .ranking-world { opacity: 0.6; }
+
       /* ─── Score Popup ─── */
       .score-popup {
         position: fixed; pointer-events: none; z-index: 12;

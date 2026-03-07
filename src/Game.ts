@@ -55,6 +55,8 @@ export class Game {
   private nextLevelHits = HITS_BASE;
   private world = 1;
   private wave = 1;
+  private paddleBounces = 0;
+  private unlockedWorld = 1;
 
   // Combo
   private combo = 0;
@@ -133,6 +135,7 @@ export class Game {
     this.rainbowBorderEl = document.getElementById("rainbow-border")!;
     this.shockwaveEl = document.getElementById("shockwave")!;
 
+    this.unlockedWorld = parseInt(localStorage.getItem("bokuzushi_unlocked") ?? "1", 10);
     this.createWorldButtons();
     this.createWalls();
     this.setupInput();
@@ -147,6 +150,8 @@ export class Game {
 
     this.updateHUD();
   }
+
+  private worldButtons: HTMLButtonElement[] = [];
 
   private createWorldButtons() {
     for (let i = 1; i <= MAX_WORLDS; i++) {
@@ -173,14 +178,29 @@ export class Game {
 
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
-        this.startNewGame(i);
+        if (i <= this.unlockedWorld) this.startNewGame(i);
       });
       btn.addEventListener("touchend", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        this.startNewGame(i);
+        if (i <= this.unlockedWorld) this.startNewGame(i);
       });
       this.worldSelectEl.appendChild(btn);
+      this.worldButtons.push(btn);
+    }
+    this.updateWorldButtons();
+  }
+
+  private updateWorldButtons() {
+    for (let i = 0; i < this.worldButtons.length; i++) {
+      const btn = this.worldButtons[i];
+      if (i + 1 <= this.unlockedWorld) {
+        btn.classList.remove("locked");
+        btn.style.opacity = "1";
+      } else {
+        btn.classList.add("locked");
+        btn.style.opacity = "0.3";
+      }
     }
   }
 
@@ -269,8 +289,45 @@ export class Game {
 
   private showStartScreen() {
     this.state = "start";
+    this.updateWorldButtons();
     this.worldSelectEl.classList.add("show");
     this.showOverlay("星砕き", "ステージを選べ", "BOKUZUSHI");
+    this.showRanking();
+  }
+
+  private showRanking() {
+    let el = document.getElementById("ranking");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "ranking";
+      this.overlay.appendChild(el);
+    }
+    el.textContent = "";
+    const ranking = this.getRanking();
+    if (ranking.length === 0) return;
+
+    const title = document.createElement("div");
+    title.className = "ranking-title";
+    title.textContent = "RANKING";
+    el.appendChild(title);
+
+    ranking.forEach((entry, i) => {
+      const row = document.createElement("div");
+      row.className = "ranking-row";
+      const rank = document.createElement("span");
+      rank.className = "ranking-rank";
+      rank.textContent = `${i + 1}.`;
+      const score = document.createElement("span");
+      score.className = "ranking-score";
+      score.textContent = String(entry.score);
+      const world = document.createElement("span");
+      world.className = "ranking-world";
+      world.textContent = entry.world;
+      row.appendChild(rank);
+      row.appendChild(score);
+      row.appendChild(world);
+      el!.appendChild(row);
+    });
   }
 
   private getBaseSpeed(): number {
@@ -294,6 +351,7 @@ export class Game {
     this.wave = 1;
     this.combo = 0;
     this.comboTimer = 0;
+    this.paddleBounces = 0;
     this.ball.speed = this.getBaseSpeed();
     this.ball.colorIndex = 0;
     this.ball.applyColor();
@@ -482,6 +540,7 @@ export class Game {
       this.ball.vx = Math.cos(angle) * this.ball.speed;
       this.ball.vy = Math.abs(Math.sin(angle) * this.ball.speed);
       this.ball.mesh.position.y = this.paddle.top + BALL_RADIUS;
+      this.paddleBounces++;
 
       // Update paddle color to match ball
       const padMat = this.paddle.mesh.material as THREE.MeshStandardMaterial;
@@ -528,7 +587,9 @@ export class Game {
 
   private onStarDestroyed(sx: number, sy: number) {
     this.particles.starBurst(sx, sy);
-    const points = 500;
+    // Fewer paddle bounces = higher star bonus (speed bonus)
+    const starBonus = Math.max(100, 2000 - this.paddleBounces * 30);
+    const points = starBonus;
     this.score += points;
 
     // MEGA effects - star destroyed
@@ -549,6 +610,13 @@ export class Game {
       if (this.state !== "playing") return;
       if (this.wave >= WAVES_PER_WORLD) {
         this.state = "worldclear";
+        // Unlock next world
+        if (this.world >= this.unlockedWorld && this.world < MAX_WORLDS) {
+          this.unlockedWorld = this.world + 1;
+          localStorage.setItem("bokuzushi_unlocked", String(this.unlockedWorld));
+          this.updateWorldButtons();
+        }
+        this.saveScore();
         this.showOverlay(
           `${themeName} 制覇!!`,
           `得点: ${this.score}`,
@@ -709,6 +777,25 @@ export class Game {
     }
   }
 
+  private saveScore() {
+    if (this.score === 0) return;
+    const raw = localStorage.getItem("bokuzushi_ranking");
+    const ranking: { score: number; world: string; date: string }[] = raw ? JSON.parse(raw) : [];
+    ranking.push({
+      score: this.score,
+      world: this.getWorldName(),
+      date: new Date().toLocaleDateString("ja-JP"),
+    });
+    ranking.sort((a, b) => b.score - a.score);
+    const top10 = ranking.slice(0, 10);
+    localStorage.setItem("bokuzushi_ranking", JSON.stringify(top10));
+  }
+
+  private getRanking(): { score: number; world: string; date: string }[] {
+    const raw = localStorage.getItem("bokuzushi_ranking");
+    return raw ? JSON.parse(raw) : [];
+  }
+
   start() {
     this.showStartScreen();
     this.lastTime = performance.now();
@@ -761,6 +848,7 @@ export class Game {
         this.shake(1.0, 0.5);
         this.multiFlash(8, 60, ["#ff0022", "#ffffff", "#ff0022", "#880000"]);
         this.state = "gameover";
+        this.saveScore();
         setTimeout(() => {
           this.showOverlay("終了", `得点: ${this.score}`, "タップでやり直し");
         }, 500);
