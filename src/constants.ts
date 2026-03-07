@@ -45,8 +45,8 @@ export const INDESTRUCTIBLE_COLOR_INDEX = -1;
 
 export const WALL_THICKNESS = 0.3;
 
-export const HITS_BASE = 10;
-export const HITS_GROWTH = 6;
+export const HITS_BASE = 20;
+export const HITS_GROWTH = 12;
 
 // World system
 export const WAVES_PER_WORLD = 3;
@@ -95,28 +95,28 @@ export const WORLD_THEMES: WorldTheme[] = [
     name: "桜花", subtitle: "はるのかぜ", emoji: "🌸",
     patterns: ["grid", "checkerboard", "diamond"],
     indestructiblePattern: "none", particleShape: "sakura",
-    cols: 10, rows: 14, maxColorTier: 1,
+    cols: 8, rows: 10, maxColorTier: 1,
     btnColor: "#ff88aa", btnBg: "rgba(255,136,170,0.15)",
   },
   {
     name: "炎祭", subtitle: "なつのほのお", emoji: "🔥",
     patterns: ["v-shape", "arrow", "cross"],
     indestructiblePattern: "pillars", particleShape: "flame",
-    cols: 10, rows: 16, maxColorTier: 2,
+    cols: 9, rows: 13, maxColorTier: 2,
     btnColor: "#ff4400", btnBg: "rgba(255,68,0,0.15)",
   },
   {
     name: "紅葉", subtitle: "あきのにしき", emoji: "🍁",
     patterns: ["diamond", "zigzag", "spiral"],
     indestructiblePattern: "corridors", particleShape: "leaf",
-    cols: 10, rows: 18, maxColorTier: 4,
+    cols: 10, rows: 16, maxColorTier: 4,
     btnColor: "#ff6633", btnBg: "rgba(255,102,51,0.15)",
   },
   {
     name: "氷雪", subtitle: "ふゆのしずく", emoji: "❄️",
     patterns: ["tunnel", "cross", "dense-grid"],
     indestructiblePattern: "maze", particleShape: "crystal",
-    cols: 10, rows: 20, maxColorTier: 5,
+    cols: 10, rows: 19, maxColorTier: 5,
     btnColor: "#88ccff", btnBg: "rgba(136,204,255,0.15)",
   },
   {
