@@ -187,7 +187,7 @@ export class Game {
       const btn = document.createElement("button");
       btn.className = "world-btn";
       btn.type = "button";
-      btn.setAttribute("aria-label", `${theme.name} を開始`);
+      btn.setAttribute("aria-label", `${theme.name} のステージ1から開始`);
       btn.style.borderColor = theme.btnColor;
       btn.style.background = theme.btnBg;
 
@@ -439,7 +439,7 @@ export class Game {
     this.pauseOverlay.setAttribute("aria-hidden", "true");
     this.worldSelectEl.classList.add("show");
     this.updateWorldButtons();
-    this.showOverlay("星砕き", "ステージを選べ", "BOKUZUSHI", null, null);
+    this.showOverlay("星砕き", "章を選べ", "BOKUZUSHI", null, null);
     this.showRanking();
   }
 
@@ -940,19 +940,23 @@ export class Game {
       setTimeout(() => {
         if (this.world >= MAX_WORLDS) {
           this.showOverlay(
-            "全世界制覇",
+            "全章制覇",
             `得点: ${this.score}`,
             `${themeName} を超えて、番付へ`,
             "番付へ戻る",
+            () => this.showStartScreen(),
+            "章選択",
             () => this.showStartScreen()
           );
         } else {
           this.showOverlay(
             `${themeName} 制覇!!`,
             `得点: ${this.score}`,
-            "次の世界へ進む",
-            "次の世界へ",
-            () => this.nextWorld()
+            "次の章へ進む",
+            "次の章へ",
+            () => this.nextWorld(),
+            "章選択",
+            () => this.showStartScreen()
           );
         }
       }, 1800);
@@ -960,11 +964,13 @@ export class Game {
       this.state = "waveclear";
       setTimeout(() => {
         this.showOverlay(
-          `第${this.wave}波 突破!!`,
+          `ステージ ${this.wave} クリア`,
           `得点: ${this.score}`,
-          "一気に次の波へ",
-          "次の波へ",
-          () => this.nextWave()
+          "次のステージへ",
+          "次のステージへ",
+          () => this.nextWave(),
+          "章選択",
+          () => this.showStartScreen()
         );
       }, 1400);
     }
@@ -1078,7 +1084,7 @@ export class Game {
             "流れを切り替える",
             "もう一度",
             () => this.startNewGame(this.world),
-            "ワールド選択",
+            "章選択",
             () => this.showStartScreen()
           );
         }, 500);

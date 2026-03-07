@@ -45,7 +45,7 @@ describe("HUD", () => {
     hud.update(1200, 3, 2, 1, 2, "桜花");
     hud.updateFever(80, false);
 
-    expect(document.getElementById("mobile-wave")?.textContent).toContain("●●○");
+    expect(document.getElementById("mobile-wave")?.textContent).toBe("桜花 2/3");
     expect(document.getElementById("mobile-fever-fill")?.style.transform).toBe("scaleX(0.8)");
   });
 });

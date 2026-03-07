@@ -46,10 +46,9 @@ export class HUD {
     this.levelEl.textContent = String(level);
     const tierNames = [...TIER_CONTENT.map((tier) => tier.label), BALL_FINAL_TIER.label];
     this.colorTierEl.textContent = "\u2605".repeat(colorTier + 1) + " " + (tierNames[colorTier] ?? "");
-    const pips = Array.from({ length: WAVES_PER_WORLD }, (_, index) => (index < wave ? "●" : "○")).join("");
-    this.worldWaveEl.textContent = `${worldName} ${pips}`;
+    this.worldWaveEl.textContent = `${worldName} ${wave}/${WAVES_PER_WORLD}`;
     if (this.mobileWaveEl) {
-      this.mobileWaveEl.textContent = `${worldName} ${pips}`;
+      this.mobileWaveEl.textContent = `${worldName} ${wave}/${WAVES_PER_WORLD}`;
     }
 
     if (score !== this.prevScore) {
