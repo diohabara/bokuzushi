@@ -761,10 +761,11 @@ export class Game {
           if (Math.random() < 0.2) {
             this.hud.showBigText(this.pick(["貫通!!", "突破!", "粉砕!", "一閃!"]), "atsu");
           }
-        } else if (!block.indestructible && this.ball.colorIndex === block.colorIndex) {
-          // Same tier → normal destroy (bounce)
+        } else if (!block.indestructible && this.ball.colorIndex >= block.colorIndex) {
+          // Same or stronger tier → deal damage (bounce)
+          const dmg = 1 + Math.max(0, this.ball.colorIndex - block.colorIndex);
           this.onBlockHit();
-          const destroyed = block.hit(block.hp);
+          const destroyed = block.hit(dmg);
           if (destroyed) {
             points = block.maxHp * 10;
             this.onBlockDestroyed();
@@ -775,6 +776,10 @@ export class Game {
             this.flashScreen("rgba(255,255,255,0.6)", 150, 0.4);
             const screenPos = this.worldToScreen(sx, sy);
             this.triggerShockwave(screenPos.x, screenPos.y);
+          } else {
+            this.particles.hitBurst(sx, sy, color);
+            this.shake(0.15);
+            this.flashScreen("rgba(255,255,255,0.3)", 80);
           }
           this.bounceOffBlock(bx, by, sx, sy, bhw, bhh);
         } else if (block.indestructible) {

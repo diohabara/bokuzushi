@@ -64,19 +64,20 @@ export class Block {
   private createHpBar() {
     const barWidth = BLOCK_WIDTH * 0.85;
     const barHeight = 0.07;
+    const zFront = BLOCK_DEPTH / 2 + 0.05;
 
     const bgGeo = new THREE.PlaneGeometry(barWidth, barHeight);
     const bgMat = new THREE.MeshBasicMaterial({
       color: 0x000000, transparent: true, opacity: 0.5,
     });
     this.hpBarBg = new THREE.Mesh(bgGeo, bgMat);
-    this.hpBarBg.position.set(0, -BLOCK_HEIGHT / 2 - 0.06, 0.1);
+    this.hpBarBg.position.set(0, -BLOCK_HEIGHT / 2 - 0.06, zFront);
     this.mesh.add(this.hpBarBg);
 
     const fgGeo = new THREE.PlaneGeometry(barWidth, barHeight);
     const fgMat = new THREE.MeshBasicMaterial({ color: 0x44ff44 });
     this.hpBarFg = new THREE.Mesh(fgGeo, fgMat);
-    this.hpBarFg.position.set(0, -BLOCK_HEIGHT / 2 - 0.06, 0.11);
+    this.hpBarFg.position.set(0, -BLOCK_HEIGHT / 2 - 0.06, zFront + 0.01);
     this.mesh.add(this.hpBarFg);
   }
 
