@@ -178,7 +178,7 @@ export class Game {
   }
 
   private applyMobileLayout() {
-    const lift = this.coarsePointer ? 2.45 : 0;
+    const lift = this.coarsePointer ? 1.75 : 0;
     this.paddle.setY(this.paddle.baseY + lift);
     this.ball.reset(this.paddle.x, this.paddle.y);
   }
@@ -407,7 +407,7 @@ export class Game {
     const aspect = width / height;
     const baseAspect = GAME_WIDTH / GAME_HEIGHT;
     const fitWidth = aspect <= baseAspect;
-    const safeBottom = this.coarsePointer ? 4.6 : 2.2;
+    const safeBottom = this.coarsePointer ? 4.0 : 2.2;
     const safeTop = 0.8;
 
     let viewWidth: number;
@@ -421,7 +421,7 @@ export class Game {
       viewWidth = viewHeight * aspect;
     }
 
-    this.viewCenterY = this.coarsePointer ? -1.1 : -0.6;
+    this.viewCenterY = this.coarsePointer ? -0.9 : -0.6;
     this.camera.left = -viewWidth / 2;
     this.camera.right = viewWidth / 2;
     this.camera.top = viewHeight / 2 + this.viewCenterY;

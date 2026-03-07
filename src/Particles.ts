@@ -20,9 +20,10 @@ interface Particle {
   rotSpeed: number;
 }
 
-const PARTICLE_BASE_Z = -0.45;
-const PARTICLE_MIN_Z = -1.1;
-const PARTICLE_MAX_Z = -0.12;
+const PARTICLE_BASE_Z = -0.65;
+const PARTICLE_MIN_Z = -1.25;
+const PARTICLE_MAX_Z = -0.25;
+const PARTICLE_OPACITY_SCALE = 0.68;
 
 function createGeometries(
   shape: WorldTheme["particleShape"]
@@ -94,12 +95,15 @@ export class Particles {
   }
 
   private createMaterial(color: number, opacity: number) {
-    return new THREE.MeshBasicMaterial({
+    const scaledOpacity = opacity * PARTICLE_OPACITY_SCALE;
+    const material = new THREE.MeshBasicMaterial({
       color,
       transparent: true,
-      opacity,
+      opacity: scaledOpacity,
       depthWrite: false,
     });
+    material.userData.baseOpacity = scaledOpacity;
+    return material;
   }
 
   private primeMesh(mesh: THREE.Mesh, x: number, y: number, z = PARTICLE_BASE_Z) {
@@ -283,7 +287,8 @@ export class Particles {
       p.vy -= 0.004;
       const t = Math.max(0, p.life / p.maxLife);
       p.mesh.scale.setScalar(t * p.baseScale);
-      (p.mesh.material as THREE.MeshBasicMaterial).opacity = t;
+      const material = p.mesh.material as THREE.MeshBasicMaterial;
+      material.opacity = t * ((material.userData.baseOpacity as number | undefined) ?? 1);
 
       if (p.life <= 0) {
         this.scene.remove(p.mesh);
