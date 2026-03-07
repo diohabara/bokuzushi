@@ -34,7 +34,47 @@ export const FEVER_STATE_COPY = {
   active: "沸騰",
 } as const;
 
-export const COMBO_LABEL_SUFFIX = "連ツキ!!";
+const COMBO_COPY_NORMAL = [
+  "ざわり!!",
+  "脈アリ!!",
+  "保留育ち!!",
+  "手が熱い!!",
+  "寄り目きた!!",
+  "鳴きっぱなし!!",
+  "まだ飲める!!",
+] as const;
+
+const COMBO_COPY_HOT = [
+  "右打ちの顔!!",
+  "当たりの癖!!",
+  "先バレ本番!!",
+  "島がざわつく!!",
+] as const;
+
+const COMBO_COPY_MAJOR = [
+  "当たりが居座る!!",
+  "引き返せん!!",
+  "脳汁巡航!!",
+  "席が立てん!!",
+] as const;
+
+const COMBO_COPY_JACKPOT = [
+  "島ごと前のめり!!!",
+  "やめ時が溶けた!!!",
+  "理性の保留切れ!!!",
+  "もう閉店までこれ!!!",
+] as const;
+
+function pickComboCopy(count: number, bank: readonly string[], start: number): string {
+  return bank[(count - start) % bank.length] ?? bank[0];
+}
+
+export function getComboLabelCopy(count: number): string {
+  if (count >= 16) return `${count}連 ${pickComboCopy(count, COMBO_COPY_JACKPOT, 16)}`;
+  if (count >= 10) return `${count}連 ${pickComboCopy(count, COMBO_COPY_MAJOR, 10)}`;
+  if (count >= 6) return `${count}連 ${pickComboCopy(count, COMBO_COPY_HOT, 6)}`;
+  return `${count}連 ${pickComboCopy(count, COMBO_COPY_NORMAL, 1)}`;
+}
 
 export const FEVER_TRIGGER_COPY = [
   "沸騰街道!!",

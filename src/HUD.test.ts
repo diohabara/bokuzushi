@@ -45,11 +45,11 @@ describe("HUD", () => {
     hud.showCombo(1);
 
     const combo = document.getElementById("combo");
-    expect(combo?.textContent).toBe("1連ツキ!!");
+    expect(combo?.textContent).toBe("1連 ざわり!!");
     expect(combo?.style.getPropertyValue("--combo-font-size")).toBe("clamp(28px, 6vw, 28px)");
   });
 
-  it("コンボ数に応じて連ツキ表示を大きくする", () => {
+  it("コンボ数に応じて文言とサイズを変える", () => {
     const hud = new HUD();
     hud.showCombo(1);
     const small = document.getElementById("combo")?.style.getPropertyValue("--combo-font-size");
@@ -58,8 +58,15 @@ describe("HUD", () => {
     const large = document.getElementById("combo")?.style.getPropertyValue("--combo-font-size");
 
     expect(large).not.toBe(small);
-    expect(document.getElementById("combo")?.textContent).toBe("7連ツキ!!");
+    expect(document.getElementById("combo")?.textContent).toBe("7連 当たりの癖!!");
     expect(large).toBe("clamp(28px, 9.6vw, 52px)");
+  });
+
+  it("高コンボ帯では専用の煽り文言に切り替える", () => {
+    const hud = new HUD();
+    hud.showCombo(16);
+
+    expect(document.getElementById("combo")?.textContent).toBe("16連 島ごと前のめり!!!");
   });
 
   it("モバイルドックにも FEVER と wave を反映する", () => {

@@ -1,8 +1,8 @@
 import { FEVER_MAX } from "./gameRules";
 import {
   BALL_FINAL_TIER,
-  COMBO_LABEL_SUFFIX,
   FEVER_STATE_COPY,
+  getComboLabelCopy,
   TIER_CONTENT,
 } from "./gameContent";
 import { WAVES_PER_WORLD } from "./constants";
@@ -94,7 +94,7 @@ export class HUD {
   }
 
   showCombo(count: number) {
-    this.comboEl.textContent = `${count}${COMBO_LABEL_SUFFIX}`;
+    this.comboEl.textContent = getComboLabelCopy(count);
     const minSize = 28;
     const maxSize = 96;
     const growth = Math.min(count - 1, 12) * 4;
