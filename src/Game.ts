@@ -777,9 +777,9 @@ export class Game {
             this.triggerShockwave(screenPos.x, screenPos.y);
           }
           this.bounceOffBlock(bx, by, sx, sy, bhw, bhh);
-        } else {
-          // Ball weaker than block OR armored block → chip damage (bounce)
-          const chipDmg = block.indestructible ? 2 : Math.max(1, this.ball.colorIndex);
+        } else if (block.indestructible) {
+          // Indestructible block → chip damage (bounce)
+          const chipDmg = Math.max(2, this.ball.colorIndex);
           const destroyed = block.hit(chipDmg);
           if (destroyed) {
             this.onBlockHit();
@@ -794,6 +794,12 @@ export class Game {
             this.shake(0.15);
             this.flashScreen("rgba(255,255,255,0.3)", 80);
           }
+          this.bounceOffBlock(bx, by, sx, sy, bhw, bhh);
+        } else {
+          // Ball weaker than block → bounce only, no damage
+          this.particles.hitBurst(sx, sy, color);
+          this.shake(0.1);
+          this.flashScreen("rgba(255,255,255,0.15)", 60);
           this.bounceOffBlock(bx, by, sx, sy, bhw, bhh);
         }
 
