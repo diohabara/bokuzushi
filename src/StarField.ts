@@ -26,6 +26,8 @@ type StarFieldGenerateOptions = {
 const MOBILE_LAYOUT_ROW_THRESHOLD = 24;
 const MOBILE_BLOCK_TOP_MARGIN = 0.2;
 const MOBILE_PADDLE_CLEARANCE = 0.9;
+const MOBILE_DEEP_WORLD_PADDLE_CLEARANCE = 1.4;
+const MOBILE_DEEP_WORLD_ROW_THRESHOLD = 32;
 
 const patternMap: Record<PatternName, PatternFn> = {
   // Full wall — ball must smash through everything
@@ -246,7 +248,10 @@ export function getBlockLayoutProfile(rows: number, coarsePointer: boolean, padd
   }
 
   const topLimitY = GAME_HEIGHT / 2 - WALL_THICKNESS - BLOCK_HEIGHT / 2 - MOBILE_BLOCK_TOP_MARGIN;
-  const lowestAllowedY = paddleTop + BLOCK_HEIGHT / 2 + MOBILE_PADDLE_CLEARANCE;
+  const paddleClearance = rows >= MOBILE_DEEP_WORLD_ROW_THRESHOLD
+    ? MOBILE_DEEP_WORLD_PADDLE_CLEARANCE
+    : MOBILE_PADDLE_CLEARANCE;
+  const lowestAllowedY = paddleTop + BLOCK_HEIGHT / 2 + paddleClearance;
   const fittedSpacingY = rows > 1
     ? (topLimitY - lowestAllowedY) / (rows - 1)
     : BLOCK_SPACING_Y;

@@ -86,6 +86,6 @@ describe("getBlockLayoutProfile", () => {
 
     expect(layout.startY).toBeGreaterThan(BLOCK_START_Y);
     expect(layout.spacingY).toBeLessThan(BLOCK_SPACING_Y);
-    expect(lowestBlockY).toBeGreaterThan(mobilePaddleTop + BLOCK_HEIGHT / 2);
+    expect(lowestBlockY).toBeGreaterThan(mobilePaddleTop + BLOCK_HEIGHT / 2 + 1.3);
   });
 });
