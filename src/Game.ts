@@ -502,7 +502,7 @@ export class Game {
 
     const title = document.createElement("div");
     title.className = "ranking-title";
-    title.textContent = "RANKING";
+    title.textContent = "ハイスコア";
     el.appendChild(title);
 
     ranking.forEach((entry, index) => {
@@ -1001,8 +1001,8 @@ export class Game {
           this.showOverlay(
             "全章制覇",
             `得点: ${this.score}`,
-            `${themeName} を超えて、番付へ`,
-            "番付へ戻る",
+            `${themeName} を超えて、ハイスコアへ`,
+            "ハイスコアへ",
             () => this.showStartScreen(),
             "章選択",
             () => this.showStartScreen()
