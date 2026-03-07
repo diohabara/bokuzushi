@@ -489,10 +489,11 @@ export class Game {
 
   private showRanking() {
     let el = document.getElementById("ranking");
+    const overlayStack = this.overlay.querySelector(".overlay-stack");
     if (!el) {
       el = document.createElement("div");
       el.id = "ranking";
-      this.overlay.appendChild(el);
+      (overlayStack ?? this.overlay).appendChild(el);
     }
     el.style.display = "block";
     el.textContent = "";

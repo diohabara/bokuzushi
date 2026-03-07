@@ -267,9 +267,6 @@
         inset: 0;
         z-index: 20;
         display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
         text-align: center;
         padding: 20px;
       }
@@ -361,11 +358,29 @@
       }
 
       #overlay {
+        justify-content: center;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
         background: radial-gradient(ellipse at center, rgba(5, 5, 16, 0.84), rgba(5, 5, 16, 0.94));
         backdrop-filter: blur(4px);
       }
 
       #overlay.hidden { display: none; }
+
+      .overlay-stack {
+        width: min(540px, 100%);
+        min-height: calc(100dvh - 40px);
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding:
+          max(20px, env(safe-area-inset-top))
+          0
+          max(24px, env(safe-area-inset-bottom));
+      }
 
       #overlay h1 {
         font-size: clamp(34px, 8vw, 72px);
@@ -822,32 +837,35 @@
     <div id="big-text" aria-live="polite"></div>
 
     <div id="overlay">
-      <h1 id="overlay-title">星砕き</h1>
-      <p id="overlay-message">章を選べ</p>
-      <p class="sub" id="overlay-sub">BOKUZUSHI</p>
+      <div class="overlay-stack">
+        <h1 id="overlay-title">星砕き</h1>
+        <p id="overlay-message">章を選べ</p>
+        <p class="sub" id="overlay-sub">BOKUZUSHI</p>
 
-      <div id="world-select" class="show">
-        <div id="world-select-label">─ 章 選 択 ─</div>
-      </div>
+        <div id="world-select" class="show">
+          <div id="world-select-label">─ 章 選 択 ─</div>
+        </div>
 
-      <div class="dialog-actions">
-        <button id="overlay-action" class="action-button primary hidden" type="button">
-          次へ
+        <div class="dialog-actions">
+          <button id="overlay-action" class="action-button primary hidden" type="button">
+            次へ
+          </button>
+        </div>
+
+        <button id="overlay-secondary-action" class="action-button secondary overlay-corner-button hidden" type="button">
+          章選択
         </button>
-      </div>
-      <button id="overlay-secondary-action" class="action-button secondary overlay-corner-button hidden" type="button">
-        章選択
-      </button>
 
-      <div class="color-hint">
-        ブロックを壊して段位を上げ<br />
-        <span style="background:#33cc66"></span><span style="background:#3388ff"></span><span style="background:#ffcc00"></span><span style="background:#ff8822"></span><span style="background:#ff3344"></span><span style="background:#4444cc"></span><span style="background:#9933cc"></span><br />
-        強い色で貫通し、沸騰街道で盤面を飲み込め
-      </div>
+        <div class="color-hint">
+          ブロックを壊して段位を上げ<br />
+          <span style="background:#33cc66"></span><span style="background:#3388ff"></span><span style="background:#ffcc00"></span><span style="background:#ff8822"></span><span style="background:#ff3344"></span><span style="background:#4444cc"></span><span style="background:#9933cc"></span><br />
+          強い色で貫通し、沸騰街道で盤面を飲み込め
+        </div>
 
-      <div class="controls">
-        マウス / タッチ / ← → で移動。クリック / タップ / Enter / Space で発射。<br />
-        Escape でポーズ。沸点ゲージが満ちると沸騰街道へ入り、その間は得点 2 倍。
+        <div class="controls">
+          マウス / タッチ / ← → で移動。クリック / タップ / Enter / Space で発射。<br />
+          Escape でポーズ。沸点ゲージが満ちると沸騰街道へ入り、その間は得点 2 倍。
+        </div>
       </div>
     </div>
 
