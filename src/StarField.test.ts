@@ -3,7 +3,6 @@ import {
   getBlockLayoutProfile,
   getFrontRowDurabilityProfile,
   getStarPlacementProfile,
-  getWorldDurabilityTuning,
 } from "./StarField";
 import {
   BLOCK_HEIGHT,
@@ -12,6 +11,7 @@ import {
   MOBILE_PADDLE_LIFT,
   PADDLE_HEIGHT,
   PADDLE_Y,
+  WORLD_THEMES,
 } from "./constants";
 
 describe("getStarPlacementProfile", () => {
@@ -124,13 +124,12 @@ describe("getFrontRowDurabilityProfile", () => {
   });
 });
 
-describe("getWorldDurabilityTuning", () => {
-  it("4章は5章より通常ブロックとガードを軽くする", () => {
-    const world4 = getWorldDurabilityTuning(3);
-    const world5 = getWorldDurabilityTuning(4);
-
-    expect(world4.ambientTierReduction).toBeGreaterThan(world5.ambientTierReduction);
-    expect(world4.guardTierOffset).toBeLessThan(world5.guardTierOffset);
-    expect(world4.guardHpScale).toBeLessThan(world5.guardHpScale);
+describe("WORLD_THEMES", () => {
+  it("表示名はそのままで4章と5章の難度設定だけ入れ替える", () => {
+    expect(WORLD_THEMES[3]?.name).toBe("氷雪");
+    expect(WORLD_THEMES[4]?.name).toBe("黄金");
+    expect(WORLD_THEMES[3]?.rows).toBe(32);
+    expect(WORLD_THEMES[4]?.rows).toBe(28);
+    expect(WORLD_THEMES[3]?.maxColorTier).toBeGreaterThan(WORLD_THEMES[4]?.maxColorTier ?? 0);
   });
 });

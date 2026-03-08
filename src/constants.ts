@@ -109,16 +109,16 @@ export const WORLD_THEMES: WorldTheme[] = [
   },
   {
     name: WORLD_CONTENT[3].name, subtitle: WORLD_CONTENT[3].subtitle, emoji: WORLD_CONTENT[3].emoji,
-    patterns: ["tunnel", "cross", "dense-grid"],
-    indestructiblePattern: "maze", particleShape: "crystal",
-    cols: 12, rows: 28, maxColorTier: 5,
+    patterns: ["ring", "spiral", "dense-grid"],
+    indestructiblePattern: "fortress", particleShape: "crystal",
+    cols: 12, rows: 32, maxColorTier: 6,
     btnColor: "#88ccff", btnBg: "rgba(136,204,255,0.15)",
   },
   {
     name: WORLD_CONTENT[4].name, subtitle: WORLD_CONTENT[4].subtitle, emoji: WORLD_CONTENT[4].emoji,
-    patterns: ["ring", "spiral", "dense-grid"],
-    indestructiblePattern: "fortress", particleShape: "star",
-    cols: 12, rows: 32, maxColorTier: 6,
+    patterns: ["tunnel", "cross", "dense-grid"],
+    indestructiblePattern: "maze", particleShape: "star",
+    cols: 12, rows: 28, maxColorTier: 5,
     btnColor: "#ffd700", btnBg: "rgba(255,215,0,0.15)",
   },
 ];
