@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { selectLaunchAngle } from "./Ball";
+import { selectLaunchAngle, toFrameStepScale } from "./Ball";
 
 describe("selectLaunchAngle", () => {
   afterEach(() => {
@@ -28,5 +28,15 @@ describe("selectLaunchAngle", () => {
     });
 
     expect(angle).toBeCloseTo(Math.PI / 2 - 0.15);
+  });
+});
+
+describe("toFrameStepScale", () => {
+  it("60fps 相当では従来と同じ 1 ステップになる", () => {
+    expect(toFrameStepScale(1 / 60, 1)).toBeCloseTo(1);
+  });
+
+  it("timeScale を掛けた分だけ滑らかに縮む", () => {
+    expect(toFrameStepScale(1 / 60, 0.62)).toBeCloseTo(0.62);
   });
 });

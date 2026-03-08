@@ -13,6 +13,7 @@ const LAUNCH_BASE_ANGLE = Math.PI / 2;
 const LAUNCH_SPREAD = 0.6;
 const DEFAULT_AVOID_WINDOW = 0.22;
 const MIN_LAUNCH_SEGMENT = 0.02;
+const FRAME_STEP_BASE = 60;
 
 export interface BallLaunchOptions {
   avoidAngle?: number;
@@ -53,6 +54,10 @@ export function selectLaunchAngle(options: BallLaunchOptions = {}) {
     return randomBetween(minAngle, leftMax);
   }
   return randomBetween(rightMin, maxAngle);
+}
+
+export function toFrameStepScale(deltaSeconds: number, timeScale = 1) {
+  return Math.max(0, deltaSeconds * FRAME_STEP_BASE * timeScale);
 }
 
 export class Ball {
@@ -211,7 +216,7 @@ export class Ball {
     this.trailCursor = 0;
   }
 
-  updateTrail() {
+  updateTrail(frameScale = 1) {
     if (!this.active) return;
     const color = this.colorIndex >= BLOCK_COLORS.length
       ? 0xe7dcff : 0xffffff;
@@ -228,14 +233,14 @@ export class Ball {
     for (const trailMesh of this.trail) {
       if (!trailMesh.visible) continue;
       const material = trailMesh.material as THREE.MeshBasicMaterial;
-      material.opacity = Math.max(0, material.opacity - Ball.TRAIL_FADE_STEP);
+      material.opacity = Math.max(0, material.opacity - Ball.TRAIL_FADE_STEP * frameScale);
       if (material.opacity <= 0.02) {
         trailMesh.visible = false;
       }
     }
   }
 
-  update(timeScale = 1) {
+  update(frameScale = 1) {
     if (!this.active) return false;
     const time = performance.now() * 0.001;
     const auraBase = this.colorIndex >= BLOCK_COLORS.length
@@ -246,8 +251,8 @@ export class Ball {
     this.core.scale.setScalar(coreBase + Math.sin(time * 11) * 0.04);
     this.prevX = this.mesh.position.x;
     this.prevY = this.mesh.position.y;
-    this.mesh.position.x += this.vx * timeScale;
-    this.mesh.position.y += this.vy * timeScale;
+    this.mesh.position.x += this.vx * frameScale;
+    this.mesh.position.y += this.vy * frameScale;
 
     const hw = GAME_WIDTH / 2 - BALL_RADIUS;
     if (this.mesh.position.x <= -hw) {

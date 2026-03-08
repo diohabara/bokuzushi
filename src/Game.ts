@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { Paddle } from "./Paddle";
 import { Ball } from "./Ball";
+import { toFrameStepScale } from "./Ball";
 import { StarField } from "./StarField";
 import { HUD } from "./HUD";
 import { Particles } from "./Particles";
@@ -1321,6 +1322,7 @@ export class Game {
     const now = performance.now();
     const dt = Math.min((now - this.lastTime) / 1000, 0.05);
     this.lastTime = now;
+    const frameScale = toFrameStepScale(dt);
 
     if (this.slowMotionTimer > 0) {
       this.slowMotionTimer -= dt;
@@ -1364,7 +1366,7 @@ export class Game {
       }
 
       this.syncBallDistanceSpeed();
-      const lost = this.ball.update(this.timeScale);
+      const lost = this.ball.update(frameScale * this.timeScale);
       if (lost) {
         this.shake(0.9, 0.45);
         this.multiFlash(6, 70, ["#ff0022", "#ffffff", "#880000"]);
@@ -1388,7 +1390,7 @@ export class Game {
       this.checkBallBlocks();
       this.syncBallDistanceSpeed();
       this.starField.update();
-      this.ball.updateTrail();
+      this.ball.updateTrail(frameScale);
       this.updateHUD();
     }
 
