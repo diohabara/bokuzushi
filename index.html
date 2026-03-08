@@ -1379,7 +1379,18 @@
         }
 
         #hud {
-          width: calc(100vw - 16px);
+          top: auto;
+          left: 8px;
+          right: 8px;
+          bottom: calc(max(12px, env(safe-area-inset-bottom)) + 84px);
+          width: auto;
+          padding: 0;
+        }
+
+        .hud-shell {
+          justify-content: center;
+          gap: 8px 12px;
+          padding: 8px 12px;
         }
       }
 
