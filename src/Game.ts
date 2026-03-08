@@ -65,13 +65,15 @@ export function getBallDistanceSpeedMultiplier(input: {
   distanceRatio: number;
   verticalVelocity: number;
   world: number;
+  coarsePointer?: boolean;
 }) {
   if (input.verticalVelocity >= 0) {
     return 1;
   }
 
   const clampedRatio = THREE.MathUtils.clamp(input.distanceRatio, 0, 1);
-  return THREE.MathUtils.lerp(0.72, 1, clampedRatio);
+  const nearPaddleMultiplier = input.coarsePointer ? 0.62 : 0.72;
+  return THREE.MathUtils.lerp(nearPaddleMultiplier, 1, clampedRatio);
 }
 
 export class Game {
@@ -304,13 +306,34 @@ export class Game {
       this.mouseX = this.screenToWorldX(event.clientX);
     });
 
+    window.addEventListener("touchstart", (event) => {
+      if (event.touches.length > 1) {
+        event.preventDefault();
+      }
+    }, { passive: false });
+
     window.addEventListener("touchmove", (event) => {
+      if (event.touches.length > 1) {
+        event.preventDefault();
+        return;
+      }
       if (!this.shouldCaptureTouchInput()) return;
       event.preventDefault();
       if (event.touches.length > 0) {
         this.mouseX = this.screenToWorldX(event.touches[0].clientX);
       }
     }, { passive: false });
+
+    // iOS Safari can still open magnifier/zoom gestures unless gesture events are blocked.
+    for (const type of ["gesturestart", "gesturechange", "gestureend"]) {
+      window.addEventListener(type, (event) => {
+        event.preventDefault();
+      }, { passive: false });
+    }
+
+    window.addEventListener("dblclick", (event) => {
+      event.preventDefault();
+    });
 
     window.addEventListener("click", (event) => {
       if ((event.target as HTMLElement | null)?.closest("button")) return;
@@ -638,6 +661,7 @@ export class Game {
       distanceRatio: this.getBallPaddleDistanceRatio(),
       verticalVelocity: this.ball.vy,
       world: this.world,
+      coarsePointer: this.coarsePointer,
     });
   }
 

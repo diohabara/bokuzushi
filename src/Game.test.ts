@@ -15,6 +15,7 @@ describe("getBallDistanceSpeedMultiplier", () => {
       distanceRatio: 0,
       verticalVelocity: -0.12,
       world: 5,
+      coarsePointer: false,
     })).toBeCloseTo(0.72);
   });
 
@@ -23,11 +24,13 @@ describe("getBallDistanceSpeedMultiplier", () => {
       distanceRatio: 0.3,
       verticalVelocity: -0.12,
       world: 1,
+      coarsePointer: false,
     });
     const lateWorld = getBallDistanceSpeedMultiplier({
       distanceRatio: 0.3,
       verticalVelocity: -0.12,
       world: 5,
+      coarsePointer: false,
     });
 
     expect(earlyWorld).toBeCloseTo(lateWorld);
@@ -38,6 +41,7 @@ describe("getBallDistanceSpeedMultiplier", () => {
       distanceRatio: 1,
       verticalVelocity: -0.12,
       world: 5,
+      coarsePointer: true,
     })).toBeCloseTo(1);
   });
 
@@ -46,6 +50,26 @@ describe("getBallDistanceSpeedMultiplier", () => {
       distanceRatio: 0.25,
       verticalVelocity: -0.12,
       world: 4,
+      coarsePointer: false,
     })).toBeCloseTo(0.79);
+  });
+
+  it("モバイルでは近距離の減衰を強める", () => {
+    const desktop = getBallDistanceSpeedMultiplier({
+      distanceRatio: 0,
+      verticalVelocity: -0.12,
+      world: 4,
+      coarsePointer: false,
+    });
+    const mobile = getBallDistanceSpeedMultiplier({
+      distanceRatio: 0,
+      verticalVelocity: -0.12,
+      world: 4,
+      coarsePointer: true,
+    });
+
+    expect(desktop).toBeCloseTo(0.72);
+    expect(mobile).toBeCloseTo(0.62);
+    expect(mobile).toBeLessThan(desktop);
   });
 });

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
@@ -39,6 +39,8 @@
       html, body {
         width: 100%;
         min-height: 100%;
+        overflow: hidden;
+        touch-action: none;
       }
       body {
         overflow-x: hidden;
@@ -452,7 +454,7 @@
         overflow-y: auto;
         overscroll-behavior: contain;
         -webkit-overflow-scrolling: touch;
-        touch-action: pan-y pinch-zoom;
+        touch-action: pan-y;
         background:
           radial-gradient(circle at 18% 16%, rgba(255, 120, 66, 0.14), transparent 22%),
           radial-gradient(circle at 84% 18%, rgba(111, 225, 255, 0.1), transparent 18%),
