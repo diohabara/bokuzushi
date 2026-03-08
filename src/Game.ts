@@ -114,7 +114,16 @@ export function getBallDistanceSpeedMultiplier(input: {
   }
 
   const clampedRatio = THREE.MathUtils.clamp(input.distanceRatio, 0, 1);
-  const nearPaddleMultiplier = input.coarsePointer ? 0.54 : 0.66;
+  const totalWorlds = Math.max(MAX_WORLDS - 1, 1);
+  const worldProgress = THREE.MathUtils.clamp((Math.max(1, input.world) - 1) / totalWorlds, 0, 1);
+  const dampingProgress = THREE.MathUtils.smoothstep(worldProgress, 0.18, 1);
+  const earlyNearPaddleMultiplier = input.coarsePointer ? 0.76 : 0.84;
+  const lateNearPaddleMultiplier = input.coarsePointer ? 0.54 : 0.66;
+  const nearPaddleMultiplier = THREE.MathUtils.lerp(
+    earlyNearPaddleMultiplier,
+    lateNearPaddleMultiplier,
+    dampingProgress
+  );
   const easedRatio = THREE.MathUtils.smoothstep(clampedRatio, 0, 1);
   return THREE.MathUtils.lerp(nearPaddleMultiplier, 1, easedRatio);
 }

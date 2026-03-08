@@ -26,7 +26,7 @@ describe("getBallDistanceSpeedMultiplier", () => {
     })).toBeCloseTo(0.66);
   });
 
-  it("ワールドに関係なく同じ減衰カーブを使う", () => {
+  it("前半ステージほど減衰を弱くして間延びを防ぐ", () => {
     const earlyWorld = getBallDistanceSpeedMultiplier({
       distanceRatio: 0.3,
       verticalVelocity: -0.12,
@@ -40,7 +40,7 @@ describe("getBallDistanceSpeedMultiplier", () => {
       coarsePointer: false,
     });
 
-    expect(earlyWorld).toBeCloseTo(lateWorld);
+    expect(earlyWorld).toBeGreaterThan(lateWorld);
   });
 
   it("距離が離れると通常速度へ戻る", () => {
@@ -52,32 +52,60 @@ describe("getBallDistanceSpeedMultiplier", () => {
     })).toBeCloseTo(1);
   });
 
-  it("中距離でも近めなら減衰をしっかり維持する", () => {
+  it("後半の中距離では近めなら減衰をしっかり維持する", () => {
     expect(getBallDistanceSpeedMultiplier({
       distanceRatio: 0.25,
       verticalVelocity: -0.12,
-      world: 4,
+      world: 5,
       coarsePointer: false,
     })).toBeCloseTo(0.713, 3);
+  });
+
+  it("前半の中距離では後半より自然に速く返る", () => {
+    expect(getBallDistanceSpeedMultiplier({
+      distanceRatio: 0.25,
+      verticalVelocity: -0.12,
+      world: 1,
+      coarsePointer: false,
+    })).toBeCloseTo(0.865, 3);
   });
 
   it("モバイルでは近距離の減衰を強める", () => {
     const desktop = getBallDistanceSpeedMultiplier({
       distanceRatio: 0,
       verticalVelocity: -0.12,
-      world: 4,
+      world: 5,
       coarsePointer: false,
     });
     const mobile = getBallDistanceSpeedMultiplier({
       distanceRatio: 0,
       verticalVelocity: -0.12,
-      world: 4,
+      world: 5,
       coarsePointer: true,
     });
 
     expect(desktop).toBeCloseTo(0.66);
     expect(mobile).toBeCloseTo(0.54);
     expect(mobile).toBeLessThan(desktop);
+  });
+
+  it("モバイル前半も後半より減衰を弱くする", () => {
+    const earlyMobile = getBallDistanceSpeedMultiplier({
+      distanceRatio: 0,
+      verticalVelocity: -0.12,
+      world: 1,
+      coarsePointer: true,
+    });
+    const lateMobile = getBallDistanceSpeedMultiplier({
+      distanceRatio: 0,
+      verticalVelocity: -0.12,
+      world: 5,
+      coarsePointer: true,
+    });
+
+    expect(earlyMobile).toBeCloseTo(0.76);
+    expect(lateMobile).toBeCloseTo(0.54);
+    expect(earlyMobile).toBeGreaterThan(lateMobile);
   });
 });
 
