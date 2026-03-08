@@ -220,6 +220,7 @@ export class Game {
 
   private timeScale = 1;
   private slowMotionTimer = 0;
+  private comboSlowMotionTriggered = false;
   private rainbowTimer = 0;
   private zoomTarget = 1;
   private zoomCurrent = 1;
@@ -843,6 +844,7 @@ export class Game {
     this.progression.feverGauge = 0;
     this.progression.feverActive = false;
     this.progression.feverTimer = 0;
+    this.comboSlowMotionTriggered = false;
     this.timeScale = 1;
     this.slowMotionTimer = 0;
   }
@@ -1050,6 +1052,12 @@ export class Game {
     this.slowMotionTimer = Math.min(duration, 0.45);
   }
 
+  private startComboSlowMotion(duration: number) {
+    if (this.comboSlowMotionTriggered) return;
+    this.comboSlowMotionTriggered = true;
+    this.startSlowMotion(duration);
+  }
+
   private triggerShockwave(x: number, y: number) {
     this.shockwaveEl.style.left = `${x}px`;
     this.shockwaveEl.style.top = `${y}px`;
@@ -1197,35 +1205,35 @@ export class Game {
       this.multiFlash(5, 80, ["#ff0000", "#ff8800", "#ffff00"]);
       this.shake(0.55, 0.35);
       this.rainbowFlash(1.8);
-      this.startSlowMotion(0.25);
+      this.startComboSlowMotion(0.25);
       this.screenZoom(1.08);
     } else if (combo === COMBO_KAKUHEN) {
       this.hud.showBigText(this.pick(COMBO_CELEBRATION_COPY.kakuhen), "kakuhen");
       this.multiFlash(8, 65, ["#ff0000", "#ff8800", "#ffff00", "#00ff00", "#0088ff"]);
       this.shake(0.7, 0.45);
       this.rainbowFlash(3);
-      this.startSlowMotion(0.35);
+      this.startComboSlowMotion(0.35);
       this.screenZoom(1.1);
     } else if (combo === COMBO_OOATARI) {
       this.hud.showBigText(this.pick(COMBO_CELEBRATION_COPY.ooatari), "kakuhen");
       this.multiFlash(tier === "jackpot" ? 14 : 10, 45, ["#ff0000", "#ffffff", "#ff8800", "#ffff00", "#00ff00", "#0088ff", "#ff00ff"]);
       this.shake(1.0, 0.7);
       this.rainbowFlash(5);
-      this.startSlowMotion(0.5);
+      this.startComboSlowMotion(0.5);
       this.screenZoom(1.15);
     } else if (combo === COMBO_CHO_GEKIATSU) {
       this.hud.showBigText(this.pick(COMBO_CELEBRATION_COPY.choGekiatsu), "kakuhen");
       this.multiFlash(tier === "jackpot" ? 14 : 10, 45, ["#ff0000", "#ffffff", "#ff8800", "#ffff00", "#00ff00", "#0088ff", "#ff00ff"]);
       this.shake(1.0, 0.7);
       this.rainbowFlash(5);
-      this.startSlowMotion(0.5);
+      this.startComboSlowMotion(0.5);
       this.screenZoom(1.15);
     } else if (combo >= COMBO_FEVER) {
       this.hud.showBigText(this.pick(COMBO_CELEBRATION_COPY.fever), "kakuhen");
       this.multiFlash(tier === "jackpot" ? 14 : 10, 45, ["#ff0000", "#ffffff", "#ff8800", "#ffff00", "#00ff00", "#0088ff", "#ff00ff"]);
       this.shake(1.0, 0.7);
       this.rainbowFlash(5);
-      this.startSlowMotion(0.5);
+      this.startComboSlowMotion(0.5);
       this.screenZoom(1.15);
     }
   }
@@ -1618,6 +1626,9 @@ export class Game {
     }
 
     this.progression = tickTimers(this.progression, dt);
+    if (this.progression.combo === 0) {
+      this.comboSlowMotionTriggered = false;
+    }
 
     if (this.rainbowTimer > 0) {
       this.rainbowTimer -= dt;
