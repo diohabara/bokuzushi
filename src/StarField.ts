@@ -309,7 +309,7 @@ export function getSpecialBlockPlan(worldIndex: number, waveIndex: number): Spec
     default:
       return [
         { kind: "bomb", count: waveIndex >= 2 ? 4 : 3 },
-        { kind: "split", count: waveIndex >= 2 ? 6 : 4 },
+        { kind: "split", count: waveIndex >= 2 ? 12 : 8 },
         { kind: "reflect", count: waveIndex >= 2 ? 10 : 8 },
       ];
   }
@@ -384,6 +384,40 @@ function clampCell(row: number, col: number, rows: number, cols: number): CellPo
     row: clampRow(row, rows),
     col: clampCol(col, cols),
   };
+}
+
+function applyWorldFiveRicochetBarrier(
+  grid: boolean[][],
+  indestructibleMask: boolean[][],
+  rows: number,
+  cols: number,
+  starRow: number,
+  starCol: number
+) {
+  for (let row = starRow + 1; row < rows - 1; row++) {
+    const segment = Math.floor((row - (starRow + 1)) / 2);
+    const direction = segment % 2 === 0 ? -1 : 1;
+    const gateCols = [
+      clampCol(starCol + direction * 2, cols),
+      clampCol(starCol + direction * 3, cols),
+    ];
+    const barrierCols = new Set([
+      clampCol(starCol - 1, cols),
+      clampCol(starCol, cols),
+      clampCol(starCol + 1, cols),
+      clampCol(starCol - direction * 2, cols),
+      clampCol(starCol - direction * 3, cols),
+    ]);
+
+    for (const col of barrierCols) {
+      grid[row][col] = true;
+      indestructibleMask[row][col] = true;
+    }
+    for (const col of gateCols) {
+      grid[row][col] = false;
+      indestructibleMask[row][col] = false;
+    }
+  }
 }
 
 function getStrategicSpecialLayout(
@@ -508,18 +542,43 @@ function getStrategicSpecialLayout(
       const splitPocketAlt = clampCell(deepFrontRow, starCol + oppositeBias * shoulderFar, rows, cols);
       const splitPocketThird = clampCell(clampRow(frontRow - 1, rows), starCol + sideBias * shoulderNear, rows, cols);
       const splitPocketFourth = clampCell(clampRow(deepFrontRow - 1, rows), starCol + oppositeBias * shoulderNear, rows, cols);
+      const splitPocketRearMain = clampCell(lowerMidRow, starCol + oppositeBias * shoulderWider, rows, cols);
+      const splitPocketRearAlt = clampCell(clampRow(lowerMidRow - 1, rows), starCol + sideBias * shoulderFar, rows, cols);
+      const splitPocketFrontWide = clampCell(deepFrontRow, starCol + sideBias * shoulderWider, rows, cols);
+      const splitPocketFrontAlt = clampCell(clampRow(frontRow + 1, rows), starCol + oppositeBias * shoulderFar, rows, cols);
       pushPlacement("split", splitPocketMain.row, splitPocketMain.col, 1, 0);
       pushPlacement("split", splitPocketAlt.row, splitPocketAlt.col, 1, 0);
       pushPlacement("split", splitPocketThird.row, splitPocketThird.col, 1, 0);
       pushPlacement("split", splitPocketFourth.row, splitPocketFourth.col, 1, 0);
+      pushPlacement("split", splitPocketRearMain.row, splitPocketRearMain.col, 1, 0);
+      pushPlacement("split", splitPocketRearAlt.row, splitPocketRearAlt.col, 1, 0);
+      pushPlacement("split", splitPocketFrontWide.row, splitPocketFrontWide.col, 1, 0);
+      pushPlacement("split", splitPocketFrontAlt.row, splitPocketFrontAlt.col, 1, 0);
       if (waveIndex >= 2) {
         const splitPocketFifth = clampCell(clampRow(frontRow - 2, rows), starCol + sideBias * shoulderWider, rows, cols);
         const splitPocketSixth = clampCell(clampRow(deepFrontRow, rows), starCol + oppositeBias * shoulderWider, rows, cols);
+        const splitPocketSeventh = clampCell(clampRow(midRow + 1, rows), starCol + oppositeBias * shoulderNear, rows, cols);
+        const splitPocketEighth = clampCell(clampRow(lowerMidRow + 1, rows), starCol + sideBias * shoulderNear, rows, cols);
+        const splitPocketNinth = clampCell(clampRow(frontRow + 2, rows), starCol + sideBias * shoulderFar, rows, cols);
+        const splitPocketTenth = clampCell(clampRow(deepFrontRow - 2, rows), starCol + oppositeBias * shoulderFar, rows, cols);
         pushPlacement("split", splitPocketFifth.row, splitPocketFifth.col, 1, 0);
         pushPlacement("split", splitPocketSixth.row, splitPocketSixth.col, 1, 0);
+        pushPlacement("split", splitPocketSeventh.row, splitPocketSeventh.col, 1, 0);
+        pushPlacement("split", splitPocketEighth.row, splitPocketEighth.col, 1, 0);
+        pushPlacement("split", splitPocketNinth.row, splitPocketNinth.col, 1, 0);
+        pushPlacement("split", splitPocketTenth.row, splitPocketTenth.col, 1, 0);
       }
 
-      for (const pocket of [splitPocketMain, splitPocketAlt, splitPocketThird, splitPocketFourth]) {
+      for (const pocket of [
+        splitPocketMain,
+        splitPocketAlt,
+        splitPocketThird,
+        splitPocketFourth,
+        splitPocketRearMain,
+        splitPocketRearAlt,
+        splitPocketFrontWide,
+        splitPocketFrontAlt,
+      ]) {
         pushSupport(pocket.row - 1, pocket.col);
         pushSupport(pocket.row, pocket.col - 1);
         pushSupport(pocket.row, pocket.col + 1);
@@ -613,6 +672,9 @@ export class StarField {
         if (starCol - offset >= 0) indestructibleMask[r][starCol - offset] = false;
         if (starCol + offset < cols) indestructibleMask[r][starCol + offset] = false;
       }
+    }
+    if (worldIndex === 4) {
+      applyWorldFiveRicochetBarrier(grid, indestructibleMask, rows, cols, starRow, starCol);
     }
 
     const strategicLayout = getStrategicSpecialLayout(

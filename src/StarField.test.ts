@@ -9,6 +9,7 @@ import {
 } from "./StarField";
 import {
   BLOCK_HEIGHT,
+  BLOCK_SPACING_X,
   BLOCK_SPACING_Y,
   BLOCK_START_Y,
   MOBILE_PADDLE_LIFT,
@@ -159,7 +160,7 @@ describe("getSpecialBlockPlan", () => {
   it("5章で反射を追加しつつ以前の特殊も残す", () => {
     expect(getSpecialBlockPlan(4, 2)).toEqual([
       { kind: "bomb", count: 4 },
-      { kind: "split", count: 6 },
+      { kind: "split", count: 12 },
       { kind: "reflect", count: 10 },
     ]);
   });
@@ -197,7 +198,7 @@ describe("StarField special generation", () => {
     const reflects = starField.blocks.filter((block) => block.kind === "reflect");
     const splits = starField.blocks.filter((block) => block.kind === "split");
     expect(reflects.length).toBeGreaterThanOrEqual(10);
-    expect(splits.length).toBeGreaterThanOrEqual(6);
+    expect(splits.length).toBeGreaterThanOrEqual(12);
     expect(
       reflects.reduce((sum, block) => sum + block.row, 0) / reflects.length
     ).toBeLessThan(
@@ -206,6 +207,29 @@ describe("StarField special generation", () => {
     expect(Math.max(...reflects.map((block) => block.row))).toBeLessThan(
       Math.min(...splits.map((block) => block.row))
     );
+  });
+
+  it("5章は星の真下に直線で抜けられる穴を作らない", () => {
+    const paddleTop = PADDLE_Y + PADDLE_HEIGHT / 2;
+    const starField = new StarField(new THREE.Scene());
+    starField.generate(2, 4, { coarsePointer: false, paddleTop });
+
+    const theme = WORLD_THEMES[4]!;
+    const layout = getBlockLayoutProfile(theme.rows, false, paddleTop);
+    const startX = -((theme.cols - 1) * BLOCK_SPACING_X) / 2;
+    const star = starField.star!;
+    const starCol = Math.round((star.mesh.position.x - startX) / BLOCK_SPACING_X);
+    const starRow = Math.round((layout.startY - star.mesh.position.y) / layout.spacingY);
+    const barrierBlocks = starField.blocks.filter((block) =>
+      (block.kind === "indestructible" || block.kind === "reflect")
+      && block.row > starRow
+      && Math.abs(block.col - starCol) <= 1
+    );
+
+    const barrierRows = new Set(barrierBlocks.map((block) => block.row));
+    for (let row = starRow + 1; row < theme.rows - 1; row++) {
+      expect(barrierRows.has(row)).toBe(true);
+    }
   });
 
   it("同じ銀河と巡目なら特殊ブロック配置は seed 固定で再現される", () => {
