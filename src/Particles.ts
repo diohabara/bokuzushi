@@ -17,6 +17,7 @@ interface Particle {
   life: number;
   maxLife: number;
   baseScale: number;
+  baseOpacity: number;
   rotSpeed: number;
 }
 
@@ -105,14 +106,16 @@ export class Particles {
 
   private createMaterial(color: number, opacity: number) {
     const scaledOpacity = opacity * PARTICLE_OPACITY_SCALE;
-    const material = new THREE.MeshBasicMaterial({
+    return new THREE.MeshBasicMaterial({
       color,
       transparent: true,
       opacity: scaledOpacity,
       depthWrite: false,
     });
-    material.userData.baseOpacity = scaledOpacity;
-    return material;
+  }
+
+  private scaledOpacity(opacity: number) {
+    return opacity * PARTICLE_OPACITY_SCALE;
   }
 
   private primeMesh(mesh: THREE.Mesh, x: number, y: number, z = PARTICLE_BASE_Z) {
@@ -124,6 +127,7 @@ export class Particles {
   // Block hit (no destroy) - still very flashy
   hitBurst(x: number, y: number, color: number) {
     const count = this.scaledCount(HIT_PARTICLE_COUNT, 18);
+    const baseOpacity = this.scaledOpacity(0.9);
     for (let i = 0; i < count; i++) {
       const mat = this.createMaterial(color, 0.9);
       const mesh = new THREE.Mesh(this.geo, mat);
@@ -142,6 +146,7 @@ export class Particles {
         life,
         maxLife: life,
         baseScale: scale,
+        baseOpacity,
         rotSpeed: (Math.random() - 0.5) * 0.3,
       });
     }
@@ -150,6 +155,7 @@ export class Particles {
   // Block destroy burst - MASSIVE
   burst(x: number, y: number, color: number) {
     const count = this.scaledCount(PARTICLE_COUNT, 48);
+    const baseOpacity = this.scaledOpacity(0.9);
     // Main color burst
     for (let i = 0; i < count; i++) {
       const mat = this.createMaterial(color, 0.9);
@@ -175,12 +181,14 @@ export class Particles {
         life,
         maxLife: life,
         baseScale: scale,
+        baseOpacity,
         rotSpeed: (Math.random() - 0.5) * 0.5,
       });
     }
 
     // White sparkle ring
     const ringCount = this.scaledCount(30, 10);
+    const ringOpacity = this.scaledOpacity(0.85);
     for (let i = 0; i < ringCount; i++) {
       const mat = this.createMaterial(0xffffff, 0.85);
       const mesh = new THREE.Mesh(this.geo, mat);
@@ -197,6 +205,7 @@ export class Particles {
         life,
         maxLife: life,
         baseScale: 1.5,
+        baseOpacity: ringOpacity,
         rotSpeed: 0,
       });
     }
@@ -204,6 +213,7 @@ export class Particles {
 
   // Non-matching block bounce - small spark effect
   bounceSpark(x: number, y: number) {
+    const baseOpacity = this.scaledOpacity(0.45);
     for (let i = 0; i < 8; i++) {
       const mat = this.createMaterial(0x888888, 0.45);
       const mesh = new THREE.Mesh(this.geo, mat);
@@ -220,6 +230,7 @@ export class Particles {
         life,
         maxLife: life,
         baseScale: 0.5,
+        baseOpacity,
         rotSpeed: 0,
       });
     }
@@ -229,6 +240,7 @@ export class Particles {
   starBurst(x: number, y: number) {
     const colors = [0xffd700, 0xffaa00, 0xffffff, 0xffee88, 0xff4400, 0xff00ff];
     const count = this.scaledCount(PARTICLE_COUNT * 5, 160);
+    const baseOpacity = this.scaledOpacity(0.88);
     for (let i = 0; i < count; i++) {
       const color = colors[i % colors.length];
       const mat = this.createMaterial(color, 0.88);
@@ -254,6 +266,7 @@ export class Particles {
         life,
         maxLife: life,
         baseScale: scale,
+        baseOpacity,
         rotSpeed: (Math.random() - 0.5) * 0.8,
       });
     }
@@ -262,6 +275,7 @@ export class Particles {
   // Ball-related burst - used for color shifts, level-up sparks, and ball emphasis.
   colorChangeBurst(x: number, y: number, color: number, strength = 1) {
     const count = this.scaledCount(Math.round(28 * strength), Math.max(10, Math.round(10 * strength)));
+    const baseOpacity = this.scaledOpacity(0.85);
     for (let i = 0; i < count; i++) {
       const mat = this.createMaterial(color, 0.85);
       const mesh = new THREE.Mesh(this.bigGeo, mat);
@@ -280,6 +294,7 @@ export class Particles {
         life,
         maxLife: life,
         baseScale: scale,
+        baseOpacity,
         rotSpeed: (Math.random() - 0.5) * 0.3,
       });
     }
@@ -287,13 +302,14 @@ export class Particles {
 
   update(dt: number) {
     let writeIndex = 0;
+    const deadMeshes: THREE.Mesh[] = [];
     for (let i = 0; i < this.particles.length; i++) {
       const p = this.particles[i];
       p.life -= dt;
 
       if (p.life <= 0) {
         p.mesh.visible = false;
-        this.scene.remove(p.mesh);
+        deadMeshes.push(p.mesh);
         continue;
       }
 
@@ -304,15 +320,22 @@ export class Particles {
         Math.max(PARTICLE_MIN_Z, p.mesh.position.z + p.vz)
       );
       p.mesh.rotation.z += p.rotSpeed;
-      // Gravity
       p.vy -= 0.004;
       const t = p.life / p.maxLife;
       p.mesh.scale.setScalar(t * p.baseScale);
-      const material = p.mesh.material as THREE.MeshBasicMaterial;
-      material.opacity = t * ((material.userData.baseOpacity as number | undefined) ?? 1);
+      (p.mesh.material as THREE.MeshBasicMaterial).opacity = t * p.baseOpacity;
 
       this.particles[writeIndex++] = p;
     }
     this.particles.length = writeIndex;
+
+    // Batch-remove dead meshes outside the hot loop
+    for (const mesh of deadMeshes) {
+      this.scene.remove(mesh);
+    }
+  }
+
+  getCount() {
+    return this.particles.length;
   }
 }

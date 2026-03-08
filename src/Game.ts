@@ -7,6 +7,7 @@ import { StarField } from "./StarField";
 import { HUD } from "./HUD";
 import { Particles } from "./Particles";
 import { WorldBackground } from "./WorldBackground";
+import { PerfMonitor } from "./PerfMonitor";
 import {
   COMBO_CELEBRATION_COPY,
   DISPLAY_TITLE,
@@ -227,6 +228,7 @@ export class Game {
   private renderPixelRatio = 1;
   private ballSparkTimer = 0;
   private ballSparkCooldown = 0;
+  private perf: PerfMonitor;
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -255,6 +257,9 @@ export class Game {
     this.starField = new StarField(this.scene);
     this.hud = new HUD();
     this.particles = new Particles(this.scene);
+    this.perf = new PerfMonitor();
+    this.perf.setParticleCountFn(() => this.particles.getCount());
+    this.perf.setSceneChildCountFn(() => this.scene.children.length);
 
     this.overlay = document.getElementById("overlay")!;
     this.overlayTitle = document.getElementById("overlay-title")!;
@@ -1605,11 +1610,14 @@ export class Game {
       return;
     }
 
+    this.perf.beginFrame();
+
     const now = performance.now();
     const dt = Math.min((now - this.lastTime) / 1000, 0.05);
     this.lastTime = now;
     const frameScale = toFrameStepScale(dt);
 
+    this.perf.beginPhase("timers");
     if (this.slowMotionTimer > 0) {
       this.slowMotionTimer -= dt;
       if (this.slowMotionTimer <= 0) this.timeScale = 1;
@@ -1643,6 +1651,7 @@ export class Game {
       this.camera.zoom = this.zoomCurrent;
       this.camera.updateProjectionMatrix();
     }
+    this.perf.endPhase("timers");
 
     if (!this.coarsePointer && this.keyboardDirection !== 0 && this.state === "playing") {
       this.mouseX += this.keyboardDirection * dt * 18;
@@ -1658,6 +1667,7 @@ export class Game {
         ball.mesh.position.y = this.paddle.y + 0.5;
       }
 
+      this.perf.beginPhase("physics");
       for (const ball of [...this.getActiveBalls()]) {
         this.syncBallDistanceSpeed(ball);
         const lost = ball.update(frameScale * this.timeScale);
@@ -1668,6 +1678,7 @@ export class Game {
           ball.dispose();
         }
       }
+      this.perf.endPhase("physics");
 
       if (!this.initialServePending && this.getActiveBalls().length === 0) {
         this.shake(0.9, 0.45);
@@ -1688,16 +1699,27 @@ export class Game {
         }, 500);
       }
 
+      this.perf.beginPhase("collision");
       this.checkBallPaddle();
       this.checkBallBlocks();
       for (const ball of this.getActiveBalls()) {
         this.syncBallDistanceSpeed(ball);
       }
+      this.perf.endPhase("collision");
+
+      this.perf.beginPhase("starField");
       this.starField.update();
+      this.perf.endPhase("starField");
+
+      this.perf.beginPhase("trails");
       for (const ball of this.balls) {
         ball.updateTrail(frameScale);
       }
+      this.perf.endPhase("trails");
+
+      this.perf.beginPhase("hud");
       this.updateHUD();
+      this.perf.endPhase("hud");
     }
 
     if (this.shakeTimer > 0) {
@@ -1713,8 +1735,18 @@ export class Game {
       this.shakeIntensity = 0;
     }
 
+    this.perf.beginPhase("background");
     this.worldBg.update(dt);
+    this.perf.endPhase("background");
+
+    this.perf.beginPhase("particles");
     this.particles.update(dt * this.timeScale);
+    this.perf.endPhase("particles");
+
+    this.perf.beginPhase("render");
     this.renderer.render(this.scene, this.camera);
+    this.perf.endPhase("render");
+
+    this.perf.endFrame();
   };
 }
