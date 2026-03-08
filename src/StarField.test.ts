@@ -8,6 +8,7 @@ import {
   StarField,
 } from "./StarField";
 import {
+  BLOCK_COLORS,
   BLOCK_HEIGHT,
   BLOCK_SPACING_X,
   BLOCK_SPACING_Y,
@@ -212,6 +213,20 @@ describe("StarField special generation", () => {
     expect(splits.length).toBeGreaterThanOrEqual(3);
     expect(extendsBlocks.length).toBeGreaterThanOrEqual(12);
     expect(indestructibles.length).toBeLessThan(150);
+  });
+
+  it("特殊ブロックの本体色は耐久 tier の色を使う", () => {
+    const starField = new StarField(new THREE.Scene());
+    starField.generate(2, 4, { coarsePointer: false, paddleTop: PADDLE_Y + PADDLE_HEIGHT / 2 });
+
+    const specialBlock = starField.blocks.find((block) =>
+      (block.kind === "extend" || block.kind === "split" || block.kind === "reflect")
+      && block.alive
+    );
+
+    expect(specialBlock).toBeDefined();
+    const material = specialBlock!.mesh.material as THREE.MeshStandardMaterial;
+    expect(material.color.getHex()).toBe(BLOCK_COLORS[specialBlock!.colorIndex]);
   });
 
   it("5章は一直線を防ぎつつも壁を詰め込みすぎない", () => {

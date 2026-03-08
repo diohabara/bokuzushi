@@ -4,6 +4,7 @@ import {
   getExtendedPaddleMultiplier,
   getBallDistanceSpeedMultiplier,
   getRankingStorageKey,
+  getStagePaddleBaseMultiplier,
   getVisibleRankingWorlds,
   isDebugUnlockAllEnabled,
 } from "./Game";
@@ -179,13 +180,30 @@ describe("createSplitBallVelocities", () => {
 });
 
 describe("getExtendedPaddleMultiplier", () => {
-  it("パドル延長は取るたびに一定量ずつ伸びる", () => {
-    expect(getExtendedPaddleMultiplier(1)).toBeCloseTo(1.5);
-    expect(getExtendedPaddleMultiplier(1.5)).toBeCloseTo(2);
+  it("パドル延長は基礎長に対して一定量ずつ伸びる", () => {
+    expect(getExtendedPaddleMultiplier(1, 1)).toBeCloseTo(1.5);
+    expect(getExtendedPaddleMultiplier(1.18, 2)).toBeCloseTo(2.18);
   });
 
   it("画面の8割幅で上限に達する", () => {
-    expect(getExtendedPaddleMultiplier(4.3)).toBeCloseTo((16 * 0.8) / 2.8);
-    expect(getExtendedPaddleMultiplier(10)).toBeCloseTo((16 * 0.8) / 2.8);
+    expect(getExtendedPaddleMultiplier(4.3, 1)).toBeCloseTo((16 * 0.8) / 2.8);
+    expect(getExtendedPaddleMultiplier(1.18, 20)).toBeCloseTo((16 * 0.8) / 2.8);
+  });
+});
+
+describe("getStagePaddleBaseMultiplier", () => {
+  it("同じ銀河でも巡目ごとに基礎長を変える", () => {
+    expect(getStagePaddleBaseMultiplier({ world: 1, wave: 1 })).toBeGreaterThan(
+      getStagePaddleBaseMultiplier({ world: 1, wave: 2 })
+    );
+    expect(getStagePaddleBaseMultiplier({ world: 1, wave: 2 })).toBeGreaterThan(
+      getStagePaddleBaseMultiplier({ world: 1, wave: 3 })
+    );
+  });
+
+  it("後半銀河ほど基礎長を少し短くする", () => {
+    expect(getStagePaddleBaseMultiplier({ world: 1, wave: 1 })).toBeGreaterThan(
+      getStagePaddleBaseMultiplier({ world: 5, wave: 1 })
+    );
   });
 });

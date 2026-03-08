@@ -881,15 +881,9 @@ export class StarField {
             maxTier,
             guardHp
           );
-          const color = specialKind === "normal"
-            ? BLOCK_COLORS[specialStats.colorIndex]
-            : specialKind === "indestructible"
-              ? INDESTRUCTIBLE_COLOR
-            : specialKind === "extend"
-              ? 0xffc14f
-              : specialKind === "split"
-                ? 0x57ffe5
-                : 0xb8e7ff;
+          const color = specialKind === "indestructible"
+            ? INDESTRUCTIBLE_COLOR
+            : BLOCK_COLORS[specialStats.colorIndex];
           const block = new Block(
             x,
             y,

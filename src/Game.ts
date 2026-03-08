@@ -68,6 +68,7 @@ const SPLIT_BALL_ANGLE_OFFSET = 0.32;
 const INTERNAL_BALL_SAFETY_LIMIT = 32;
 const REFLECT_BLOCK_DAMAGE = 1;
 const DEBUG_UNLOCK_STORAGE_KEY = "bokuzushi_debug_unlock_all";
+const PADDLE_EXTEND_STEP = 0.5;
 
 function parseUnlockedWorld(rawValue: string | null | undefined) {
   const parsed = Number.parseInt(rawValue ?? "1", 10);
@@ -88,8 +89,26 @@ export function isDebugUnlockAllEnabled(input: {
   return input.storageValue === "1" || input.storageValue === "true";
 }
 
-export function getExtendedPaddleMultiplier(currentMultiplier: number) {
-  return Math.min(currentMultiplier + 0.5, (GAME_WIDTH * 0.8) / PADDLE_WIDTH);
+export function getStagePaddleBaseMultiplier(input: {
+  world: number;
+  wave: number;
+  coarsePointer?: boolean;
+}) {
+  const waveBase = [1.18, 1.08, 1][Math.max(1, input.wave) - 1] ?? 1;
+  const worldOffset = Math.min(Math.max(1, input.world) - 1, 4) * 0.02;
+  const coarseBonus = input.coarsePointer ? 0.06 : 0;
+  return THREE.MathUtils.clamp(
+    waveBase - worldOffset + coarseBonus,
+    1,
+    (GAME_WIDTH * 0.8) / PADDLE_WIDTH
+  );
+}
+
+export function getExtendedPaddleMultiplier(baseMultiplier: number, extendCount: number) {
+  return Math.min(
+    baseMultiplier + Math.max(0, extendCount) * PADDLE_EXTEND_STEP,
+    (GAME_WIDTH * 0.8) / PADDLE_WIDTH
+  );
 }
 
 export function getRankingStorageKey(world: number) {
@@ -165,6 +184,7 @@ export class Game {
   private unlockedWorld = 1;
   private rankingWorld = 1;
   private progression: ProgressionState = createProgressionState();
+  private paddleExtendCount = 0;
 
   private paused = false;
   private coarsePointer = false;
@@ -347,14 +367,27 @@ export class Game {
   }
 
   private resetPaddleBoost() {
-    this.paddle.setWidthMultiplier(1);
+    this.paddleExtendCount = 0;
+    this.syncPaddleWidth();
   }
 
   private extendPaddle() {
-    this.paddle.setWidthMultiplier(getExtendedPaddleMultiplier(this.paddle.widthScale));
+    this.paddleExtendCount += 1;
+    this.syncPaddleWidth();
     this.flashScreen("rgba(255,205,120,0.42)", 120, 0.22);
     this.shake(0.14, 0.14);
     this.hud.showBigText(this.pick(["伸びた!!", "受けやすい!!", "返し板拡張!!"]), "atsu");
+  }
+
+  private syncPaddleWidth() {
+    this.paddle.setWidthMultiplier(getExtendedPaddleMultiplier(
+      getStagePaddleBaseMultiplier({
+        world: this.world,
+        wave: this.wave,
+        coarsePointer: this.coarsePointer,
+      }),
+      this.paddleExtendCount
+    ));
   }
 
   private applyMobileLayout() {
@@ -940,6 +973,7 @@ export class Game {
     this.reachStage = 0;
     this.feverReadyShown = false;
     this.resetRoundMomentum();
+    this.syncPaddleWidth();
     const nextSpeed = Math.min(this.getPrimaryBall().speed + this.getWaveSpeedIncrement(), this.getMaxSpeed());
     this.resetBalls(nextSpeed);
     this.starField.generate(this.wave - 1, this.world - 1, {

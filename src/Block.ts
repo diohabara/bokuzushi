@@ -44,6 +44,10 @@ export class Block {
 
     const geo = new THREE.BoxGeometry(BLOCK_WIDTH, BLOCK_HEIGHT, BLOCK_DEPTH, 2, 2, 1);
 
+    const blockColor = new THREE.Color(color);
+    const emissiveColor = blockColor.clone().lerp(new THREE.Color(0xffffff), 0.18);
+    const edgeColor = blockColor.clone().lerp(new THREE.Color(0xffffff), 0.52);
+
     let mat: THREE.MeshStandardMaterial;
     if (this.indestructible) {
       mat = new THREE.MeshStandardMaterial({
@@ -66,60 +70,60 @@ export class Block {
       this.baseEmissiveIntensity = 0.8;
     } else if (this.kind === "extend") {
       mat = new THREE.MeshStandardMaterial({
-        color: 0xffc14f,
-        emissive: 0xff9f1a,
+        color,
+        emissive: emissiveColor,
         emissiveIntensity: 0.72,
         metalness: 0.28,
         roughness: 0.24,
       });
       const edgeGeo = new THREE.EdgesGeometry(geo);
       const edgeMat = new THREE.LineBasicMaterial({
-        color: 0xfff0c2,
+        color: edgeColor,
         transparent: true,
         opacity: 0.9,
       });
       this.edgeGlow = new THREE.LineSegments(edgeGeo, edgeMat);
       this.edgeGlow.position.set(x, y, 0.01);
-      this.baseColor = new THREE.Color(0xffc14f);
-      this.baseEmissive = new THREE.Color(0xff9f1a);
+      this.baseColor = blockColor;
+      this.baseEmissive = emissiveColor;
       this.baseEmissiveIntensity = 0.72;
     } else if (this.kind === "split") {
       mat = new THREE.MeshStandardMaterial({
-        color: 0x57ffe5,
-        emissive: 0x00d5d5,
+        color,
+        emissive: emissiveColor,
         emissiveIntensity: 0.68,
         metalness: 0.2,
         roughness: 0.2,
       });
       const edgeGeo = new THREE.EdgesGeometry(geo);
       const edgeMat = new THREE.LineBasicMaterial({
-        color: 0xe4ffff,
+        color: edgeColor,
         transparent: true,
         opacity: 0.88,
       });
       this.edgeGlow = new THREE.LineSegments(edgeGeo, edgeMat);
       this.edgeGlow.position.set(x, y, 0.01);
-      this.baseColor = new THREE.Color(0x57ffe5);
-      this.baseEmissive = new THREE.Color(0x00d5d5);
+      this.baseColor = blockColor;
+      this.baseEmissive = emissiveColor;
       this.baseEmissiveIntensity = 0.68;
     } else if (this.kind === "reflect") {
       mat = new THREE.MeshStandardMaterial({
-        color: 0xb8e7ff,
-        emissive: 0x8fd3ff,
+        color,
+        emissive: emissiveColor,
         emissiveIntensity: 0.62,
         metalness: 0.95,
         roughness: 0.08,
       });
       const edgeGeo = new THREE.EdgesGeometry(geo);
       const edgeMat = new THREE.LineBasicMaterial({
-        color: 0xffffff,
+        color: edgeColor,
         transparent: true,
         opacity: 0.85,
       });
       this.edgeGlow = new THREE.LineSegments(edgeGeo, edgeMat);
       this.edgeGlow.position.set(x, y, 0.01);
-      this.baseColor = new THREE.Color(0xb8e7ff);
-      this.baseEmissive = new THREE.Color(0x8fd3ff);
+      this.baseColor = blockColor;
+      this.baseEmissive = emissiveColor;
       this.baseEmissiveIntensity = 0.62;
     } else {
       mat = new THREE.MeshStandardMaterial({
