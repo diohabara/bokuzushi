@@ -160,7 +160,7 @@ describe("getSpecialBlockPlan", () => {
   it("5章で反射を追加しつつ以前の特殊も残す", () => {
     expect(getSpecialBlockPlan(4, 2)).toEqual([
       { kind: "bomb", count: 4 },
-      { kind: "split", count: 12 },
+      { kind: "split", count: 16 },
       { kind: "reflect", count: 10 },
     ]);
   });
@@ -194,11 +194,12 @@ describe("StarField special generation", () => {
   it("5章は反射ブロックが目立つ数だけ出る", () => {
     const starField = new StarField(new THREE.Scene());
     starField.generate(2, 4, { coarsePointer: false, paddleTop: PADDLE_Y + PADDLE_HEIGHT / 2 });
+    const theme = WORLD_THEMES[4]!;
 
     const reflects = starField.blocks.filter((block) => block.kind === "reflect");
     const splits = starField.blocks.filter((block) => block.kind === "split");
     expect(reflects.length).toBeGreaterThanOrEqual(10);
-    expect(splits.length).toBeGreaterThanOrEqual(12);
+    expect(splits.length).toBeGreaterThanOrEqual(16);
     expect(
       reflects.reduce((sum, block) => sum + block.row, 0) / reflects.length
     ).toBeLessThan(
@@ -207,6 +208,7 @@ describe("StarField special generation", () => {
     expect(Math.max(...reflects.map((block) => block.row))).toBeLessThan(
       Math.min(...splits.map((block) => block.row))
     );
+    expect(Math.max(...splits.map((block) => block.row))).toBeGreaterThanOrEqual(theme.rows - 4);
   });
 
   it("5章は星の真下に直線で抜けられる穴を作らない", () => {
