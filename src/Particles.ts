@@ -259,19 +259,19 @@ export class Particles {
     }
   }
 
-  // Color change burst - when ball hits paddle
-  colorChangeBurst(x: number, y: number, color: number) {
-    const count = this.scaledCount(40, 16);
+  // Ball-related burst - used for color shifts, level-up sparks, and ball emphasis.
+  colorChangeBurst(x: number, y: number, color: number, strength = 1) {
+    const count = this.scaledCount(Math.round(28 * strength), Math.max(10, Math.round(10 * strength)));
     for (let i = 0; i < count; i++) {
       const mat = this.createMaterial(color, 0.85);
       const mesh = new THREE.Mesh(this.bigGeo, mat);
-      const scale = 0.5 + Math.random() * 1.5;
+      const scale = (0.35 + Math.random() * 1.25) * (0.9 + strength * 0.35);
       this.primeMesh(mesh, x, y, PARTICLE_BASE_Z - Math.random() * 0.16);
       mesh.scale.setScalar(scale);
 
       const angle = (Math.PI * 2 * i) / count;
-      const speed = PARTICLE_SPEED * (0.8 + Math.random());
-      const life = PARTICLE_LIFETIME * 0.5;
+      const speed = PARTICLE_SPEED * (0.65 + Math.random() * (0.8 + strength * 0.3));
+      const life = PARTICLE_LIFETIME * (0.34 + strength * 0.18);
       this.particles.push({
         mesh,
         vx: Math.cos(angle) * speed,

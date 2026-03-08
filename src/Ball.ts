@@ -68,11 +68,13 @@ export class Ball {
   private glow: THREE.PointLight;
   private scene: THREE.Scene;
   private trailGeo: THREE.SphereGeometry;
+  private aura: THREE.Mesh;
+  private core: THREE.Mesh;
   private trailCursor = 0;
 
-  private static readonly TRAIL_POOL_SIZE = 14;
-  private static readonly TRAIL_OPACITY = 0.58;
-  private static readonly TRAIL_FADE_STEP = 0.08;
+  private static readonly TRAIL_POOL_SIZE = 24;
+  private static readonly TRAIL_OPACITY = 0.82;
+  private static readonly TRAIL_FADE_STEP = 0.055;
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
@@ -86,6 +88,29 @@ export class Ball {
     this.mesh = new THREE.Mesh(geo, mat);
     this.mesh.position.set(0, PADDLE_Y + 0.5, 0);
     this.mesh.renderOrder = 10;
+
+    const auraGeo = new THREE.SphereGeometry(BALL_RADIUS * 1.9, 12, 12);
+    const auraMat = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.22,
+      depthWrite: false,
+    });
+    this.aura = new THREE.Mesh(auraGeo, auraMat);
+    this.aura.renderOrder = 9;
+    this.mesh.add(this.aura);
+
+    const coreGeo = new THREE.SphereGeometry(BALL_RADIUS * 0.35, 10, 10);
+    const coreMat = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.92,
+      depthWrite: false,
+    });
+    this.core = new THREE.Mesh(coreGeo, coreMat);
+    this.core.position.z = BALL_RADIUS * 0.4;
+    this.core.renderOrder = 11;
+    this.mesh.add(this.core);
 
     this.glow = new THREE.PointLight(color, 2, 8);
     this.mesh.add(this.glow);
@@ -108,19 +133,27 @@ export class Ball {
   applyColor() {
     const mat = this.mesh.material as THREE.MeshStandardMaterial;
     if (this.colorIndex >= BLOCK_COLORS.length) {
-      // Black ball - dark aura with bright purple glow
+      // Black tier should keep a black body but show a white rim so it never vanishes into the background.
       mat.color.setHex(BALL_COLOR_BLACK);
-      mat.emissive.setHex(0xbb44ff);
-      mat.emissiveIntensity = 3.0;
-      this.glow.color.setHex(0xcc66ff);
-      this.glow.intensity = 8;
-      this.glow.distance = 16;
+      mat.emissive.setHex(0x2a2a2a);
+      mat.emissiveIntensity = 0.38;
+      mat.metalness = 0.35;
+      mat.roughness = 0.1;
+      this.glow.color.setHex(0xffffff);
+      this.glow.intensity = 2.1;
+      this.glow.distance = 6.2;
+      (this.aura.material as THREE.MeshBasicMaterial).color.setHex(0xffffff);
+      (this.core.material as THREE.MeshBasicMaterial).color.setHex(0xffffff);
     } else {
       const color = BLOCK_COLORS[this.colorIndex];
       mat.color.setHex(color);
       mat.emissive.setHex(color);
       mat.emissiveIntensity = 1.0;
+      mat.metalness = 0;
+      mat.roughness = 1;
       this.glow.color.setHex(color);
+      (this.aura.material as THREE.MeshBasicMaterial).color.setHex(0xffffff);
+      (this.core.material as THREE.MeshBasicMaterial).color.setHex(0xffffff);
     }
   }
 
@@ -144,13 +177,17 @@ export class Ball {
 
   updateGlow() {
     const tier = this.colorIndex;
+    const auraMat = this.aura.material as THREE.MeshBasicMaterial;
     if (tier >= BLOCK_COLORS.length) {
-      // Black tier: intense glow
-      this.glow.intensity = 6;
-      this.glow.distance = 20;
+      // White rim for contrast while keeping the body black.
+      this.glow.intensity = 1.8;
+      this.glow.distance = 6.2;
       const mat = this.mesh.material as THREE.MeshStandardMaterial;
-      mat.emissiveIntensity = 2.5;
-      this.mesh.scale.setScalar(1.5);
+      mat.emissiveIntensity = 0.34;
+      this.mesh.scale.setScalar(1.32);
+      auraMat.opacity = 0.48;
+      this.aura.scale.setScalar(1.52);
+      this.core.scale.setScalar(1.08);
     } else {
       const intensity = 2 + tier * 1.0;
       this.glow.intensity = intensity;
@@ -159,6 +196,9 @@ export class Ball {
       mat.emissiveIntensity = 1.0 + tier * 0.3;
       const scale = 1 + tier * 0.06;
       this.mesh.scale.setScalar(scale);
+      auraMat.opacity = 0.18 + tier * 0.02;
+      this.aura.scale.setScalar(1.1 + tier * 0.04);
+      this.core.scale.setScalar(1);
     }
   }
 
@@ -174,7 +214,7 @@ export class Ball {
   updateTrail() {
     if (!this.active) return;
     const color = this.colorIndex >= BLOCK_COLORS.length
-      ? BALL_COLOR_BLACK : BLOCK_COLORS[this.colorIndex];
+      ? 0xe7dcff : 0xffffff;
 
     const dot = this.trail[this.trailCursor];
     const dotMaterial = dot.material as THREE.MeshBasicMaterial;
@@ -182,7 +222,7 @@ export class Ball {
     dotMaterial.opacity = Ball.TRAIL_OPACITY;
     dot.visible = true;
     dot.position.copy(this.mesh.position);
-    dot.scale.copy(this.mesh.scale).multiplyScalar(0.8);
+    dot.scale.copy(this.mesh.scale).multiplyScalar(1.08);
     this.trailCursor = (this.trailCursor + 1) % this.trail.length;
 
     for (const trailMesh of this.trail) {
@@ -197,6 +237,13 @@ export class Ball {
 
   update(timeScale = 1) {
     if (!this.active) return false;
+    const time = performance.now() * 0.001;
+    const auraBase = this.colorIndex >= BLOCK_COLORS.length
+      ? 1.35
+      : 1.1 + this.colorIndex * 0.04;
+    const coreBase = this.colorIndex >= BLOCK_COLORS.length ? 1.15 : 1;
+    this.aura.scale.setScalar(auraBase + Math.sin(time * 7) * 0.05);
+    this.core.scale.setScalar(coreBase + Math.sin(time * 11) * 0.04);
     this.prevX = this.mesh.position.x;
     this.prevY = this.mesh.position.y;
     this.mesh.position.x += this.vx * timeScale;
