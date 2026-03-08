@@ -8,6 +8,7 @@ import {
   BLOCK_HEIGHT,
   BLOCK_SPACING_Y,
   BLOCK_START_Y,
+  MOBILE_PADDLE_LIFT,
   PADDLE_HEIGHT,
   PADDLE_Y,
 } from "./constants";
@@ -55,7 +56,7 @@ describe("getStarPlacementProfile", () => {
 
 describe("getBlockLayoutProfile", () => {
   const desktopPaddleTop = PADDLE_Y + PADDLE_HEIGHT / 2;
-  const mobilePaddleTop = PADDLE_Y + 1.75 + PADDLE_HEIGHT / 2;
+  const mobilePaddleTop = PADDLE_Y + MOBILE_PADDLE_LIFT + PADDLE_HEIGHT / 2;
 
   it("3章までは desktop でも従来レイアウトを維持する", () => {
     const layout = getBlockLayoutProfile(24, false, desktopPaddleTop);

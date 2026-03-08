@@ -26,6 +26,7 @@ import {
   MAX_WORLDS,
   WORLD_THEMES,
   PADDLE_WIDTH,
+  MOBILE_PADDLE_LIFT,
   BLOCK_WIDTH,
   BLOCK_HEIGHT,
   BLOCK_COLORS,
@@ -208,7 +209,7 @@ export class Game {
   }
 
   private applyMobileLayout() {
-    const lift = this.coarsePointer ? 1.75 : 0;
+    const lift = this.coarsePointer ? MOBILE_PADDLE_LIFT : 0;
     this.paddle.setY(this.paddle.baseY + lift);
     this.ball.reset(this.paddle.x, this.paddle.y);
   }

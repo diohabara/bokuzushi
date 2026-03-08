@@ -7,6 +7,7 @@ export const PADDLE_WIDTH = 2.8;
 export const PADDLE_HEIGHT = 0.35;
 export const PADDLE_DEPTH = 0.5;
 export const PADDLE_Y = -GAME_HEIGHT / 2 + 1.5;
+export const MOBILE_PADDLE_LIFT = 0.95;
 export const PADDLE_COLOR = 0x4488ff;
 
 export const BALL_RADIUS = 0.18;
