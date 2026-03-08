@@ -1637,9 +1637,12 @@ export class Game {
       }
     }
 
+    const prevZoom = this.zoomCurrent;
     this.zoomCurrent += (this.zoomTarget - this.zoomCurrent) * 0.1;
-    this.camera.zoom = this.zoomCurrent;
-    this.camera.updateProjectionMatrix();
+    if (Math.abs(this.zoomCurrent - prevZoom) > 0.0001) {
+      this.camera.zoom = this.zoomCurrent;
+      this.camera.updateProjectionMatrix();
+    }
 
     if (!this.coarsePointer && this.keyboardDirection !== 0 && this.state === "playing") {
       this.mouseX += this.keyboardDirection * dt * 18;

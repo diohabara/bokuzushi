@@ -89,7 +89,13 @@ export class HUD {
   private mobileFeverFillEl: HTMLElement | null;
   private mobileFeverStateEl: HTMLElement | null;
   private mobileWaveEl: HTMLElement | null;
-  private prevScore = 0;
+  private prevScore = -1;
+  private prevLevel = -1;
+  private prevColorTier = -1;
+  private prevWorldWave = "";
+  private prevBallColor = "";
+  private prevFeverRatio = -1;
+  private prevFeverActive = false;
 
   constructor() {
     this.scoreEl = document.getElementById("hud-score")!;
@@ -117,42 +123,62 @@ export class HUD {
     wave: number,
     worldName: string
   ) {
-    this.scoreEl.textContent = String(score);
-    this.levelEl.textContent = String(level);
-    const tierNames = [...TIER_CONTENT.map((tier) => tier.label), BALL_FINAL_TIER.label];
-    this.colorTierEl.textContent = "\u2605".repeat(colorTier + 1) + " " + (tierNames[colorTier] ?? "");
-    this.worldWaveEl.textContent = `${worldName} ${formatLayerLabel(wave)}`;
-    if (this.mobileWaveEl) {
-      this.mobileWaveEl.textContent = `${worldName} ${formatLayerLabel(wave)}`;
-    }
-
     if (score !== this.prevScore) {
+      this.scoreEl.textContent = String(score);
       this.scoreEl.style.transform = "scale(1.5)";
       setTimeout(() => {
         this.scoreEl.style.transform = "scale(1)";
       }, 200);
+      this.prevScore = score;
     }
-    this.prevScore = score;
+
+    if (level !== this.prevLevel) {
+      this.levelEl.textContent = String(level);
+      this.prevLevel = level;
+    }
+
+    if (colorTier !== this.prevColorTier) {
+      const tierNames = [...TIER_CONTENT.map((tier) => tier.label), BALL_FINAL_TIER.label];
+      this.colorTierEl.textContent = "\u2605".repeat(colorTier + 1) + " " + (tierNames[colorTier] ?? "");
+      this.prevColorTier = colorTier;
+    }
+
+    const worldWaveText = `${worldName} ${formatLayerLabel(wave)}`;
+    if (worldWaveText !== this.prevWorldWave) {
+      this.worldWaveEl.textContent = worldWaveText;
+      if (this.mobileWaveEl) {
+        this.mobileWaveEl.textContent = worldWaveText;
+      }
+      this.prevWorldWave = worldWaveText;
+    }
   }
 
   updateBallColor(colorHex: string) {
+    if (colorHex === this.prevBallColor) return;
+    this.prevBallColor = colorHex;
     this.ballColorEl.style.background = colorHex;
     this.ballColorEl.style.boxShadow = `0 0 12px ${colorHex}, 0 0 24px ${colorHex}`;
   }
 
   updateFever(gauge: number, active: boolean) {
     const ratio = Math.max(0, Math.min(1, gauge / FEVER_MAX));
+    const quantizedRatio = Math.round(ratio * 200) / 200;
+    if (quantizedRatio === this.prevFeverRatio && active === this.prevFeverActive) return;
+    this.prevFeverRatio = quantizedRatio;
+    this.prevFeverActive = active;
     this.feverFillEl.style.transform = `scaleX(${ratio})`;
-    this.feverStateEl.textContent = active
+    const stateText = active
       ? FEVER_STATE_COPY.active
       : ratio >= 0.75
         ? FEVER_STATE_COPY.hot
         : FEVER_STATE_COPY.charge;
-    this.feverStateEl.dataset.active = active ? "true" : "false";
+    this.feverStateEl.textContent = stateText;
+    const activeStr = active ? "true" : "false";
+    this.feverStateEl.dataset.active = activeStr;
     if (this.mobileFeverFillEl && this.mobileFeverStateEl) {
       this.mobileFeverFillEl.style.transform = `scaleX(${ratio})`;
-      this.mobileFeverStateEl.textContent = this.feverStateEl.textContent;
-      this.mobileFeverStateEl.dataset.active = this.feverStateEl.dataset.active ?? "false";
+      this.mobileFeverStateEl.textContent = stateText;
+      this.mobileFeverStateEl.dataset.active = activeStr;
     }
   }
 

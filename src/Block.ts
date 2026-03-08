@@ -239,6 +239,8 @@ export class Block {
     return this.edgeGlow;
   }
 
+  private static _tmpColor = new THREE.Color();
+
   updatePulse(time: number) {
     if (!this.alive) return;
     const mat = this.mesh.material as THREE.MeshStandardMaterial;
@@ -247,14 +249,14 @@ export class Block {
     const pulse = 0.5 + 0.5 * Math.sin(time * 3.0 + this.pulsePhase);
 
     if (this.indestructible) {
-      const rainbowColor = new THREE.Color().setHSL(hue, 1.0, 0.5);
-      mat.color.copy(rainbowColor);
-      mat.emissive.copy(rainbowColor);
+      Block._tmpColor.setHSL(hue, 1.0, 0.5);
+      mat.color.copy(Block._tmpColor);
+      mat.emissive.copy(Block._tmpColor);
       mat.emissiveIntensity = 0.5 + pulse * 0.5;
       if (this.edgeGlow) {
-        const edgeColor = new THREE.Color().setHSL((hue + 0.5) % 1, 1.0, 0.7);
+        Block._tmpColor.setHSL((hue + 0.5) % 1, 1.0, 0.7);
         const edgeMat = this.edgeGlow.material as THREE.LineBasicMaterial;
-        edgeMat.color.copy(edgeColor);
+        edgeMat.color.copy(Block._tmpColor);
         edgeMat.opacity = 0.6 + pulse * 0.4;
       }
       return;
@@ -272,9 +274,9 @@ export class Block {
     }
 
     if (this.kind === "split") {
-      const splitColor = new THREE.Color().setHSL(0.46 + pulse * 0.06, 1, 0.62);
-      mat.color.copy(splitColor);
-      mat.emissive.copy(splitColor);
+      Block._tmpColor.setHSL(0.46 + pulse * 0.06, 1, 0.62);
+      mat.color.copy(Block._tmpColor);
+      mat.emissive.copy(Block._tmpColor);
       mat.emissiveIntensity = this.baseEmissiveIntensity + pulse * 0.28;
       if (this.edgeGlow) {
         const edgeMat = this.edgeGlow.material as THREE.LineBasicMaterial;

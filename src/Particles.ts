@@ -286,9 +286,17 @@ export class Particles {
   }
 
   update(dt: number) {
-    for (let i = this.particles.length - 1; i >= 0; i--) {
+    let writeIndex = 0;
+    for (let i = 0; i < this.particles.length; i++) {
       const p = this.particles[i];
       p.life -= dt;
+
+      if (p.life <= 0) {
+        p.mesh.visible = false;
+        this.scene.remove(p.mesh);
+        continue;
+      }
+
       p.mesh.position.x += p.vx;
       p.mesh.position.y += p.vy;
       p.mesh.position.z = Math.min(
@@ -298,15 +306,13 @@ export class Particles {
       p.mesh.rotation.z += p.rotSpeed;
       // Gravity
       p.vy -= 0.004;
-      const t = Math.max(0, p.life / p.maxLife);
+      const t = p.life / p.maxLife;
       p.mesh.scale.setScalar(t * p.baseScale);
       const material = p.mesh.material as THREE.MeshBasicMaterial;
       material.opacity = t * ((material.userData.baseOpacity as number | undefined) ?? 1);
 
-      if (p.life <= 0) {
-        this.scene.remove(p.mesh);
-        this.particles.splice(i, 1);
-      }
+      this.particles[writeIndex++] = p;
     }
+    this.particles.length = writeIndex;
   }
 }
