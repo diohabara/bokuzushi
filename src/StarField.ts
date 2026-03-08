@@ -23,11 +23,12 @@ type StarFieldGenerateOptions = {
   paddleTop?: number;
 };
 
-const MOBILE_LAYOUT_ROW_THRESHOLD = 24;
+const LATE_WORLD_ROW_THRESHOLD = 28;
+const DEEP_WORLD_ROW_THRESHOLD = 32;
+const DESKTOP_BLOCK_TOP_MARGIN = 0.1;
 const MOBILE_BLOCK_TOP_MARGIN = 0.2;
-const MOBILE_PADDLE_CLEARANCE = 0.9;
-const MOBILE_DEEP_WORLD_PADDLE_CLEARANCE = 1.4;
-const MOBILE_DEEP_WORLD_ROW_THRESHOLD = 32;
+const LATE_WORLD_PADDLE_CLEARANCE = 1.2;
+const DEEP_WORLD_PADDLE_CLEARANCE = 1.8;
 
 const patternMap: Record<PatternName, PatternFn> = {
   // Full wall — ball must smash through everything
@@ -240,17 +241,18 @@ export function getStarPlacementProfile(worldIndex: number, waveIndex: number) {
 }
 
 export function getBlockLayoutProfile(rows: number, coarsePointer: boolean, paddleTop: number) {
-  if (!coarsePointer || rows <= MOBILE_LAYOUT_ROW_THRESHOLD) {
+  if (rows < LATE_WORLD_ROW_THRESHOLD) {
     return {
       startY: BLOCK_START_Y,
       spacingY: BLOCK_SPACING_Y,
     };
   }
 
-  const topLimitY = GAME_HEIGHT / 2 - WALL_THICKNESS - BLOCK_HEIGHT / 2 - MOBILE_BLOCK_TOP_MARGIN;
-  const paddleClearance = rows >= MOBILE_DEEP_WORLD_ROW_THRESHOLD
-    ? MOBILE_DEEP_WORLD_PADDLE_CLEARANCE
-    : MOBILE_PADDLE_CLEARANCE;
+  const topMargin = coarsePointer ? MOBILE_BLOCK_TOP_MARGIN : DESKTOP_BLOCK_TOP_MARGIN;
+  const topLimitY = GAME_HEIGHT / 2 - WALL_THICKNESS - BLOCK_HEIGHT / 2 - topMargin;
+  const paddleClearance = rows >= DEEP_WORLD_ROW_THRESHOLD
+    ? DEEP_WORLD_PADDLE_CLEARANCE
+    : LATE_WORLD_PADDLE_CLEARANCE;
   const lowestAllowedY = paddleTop + BLOCK_HEIGHT / 2 + paddleClearance;
   const fittedSpacingY = rows > 1
     ? (topLimitY - lowestAllowedY) / (rows - 1)
@@ -259,6 +261,17 @@ export function getBlockLayoutProfile(rows: number, coarsePointer: boolean, padd
   return {
     startY: topLimitY,
     spacingY: Math.max(0.1, Math.min(BLOCK_SPACING_Y, fittedSpacingY)),
+  };
+}
+
+export function getFrontRowDurabilityProfile(rows: number, row: number, stageProgress: number) {
+  const rowRatio = rows > 1 ? row / (rows - 1) : 0;
+  const lateWorldFactor = THREE.MathUtils.smoothstep(stageProgress, 0.45, 1);
+  const frontZoneFactor = THREE.MathUtils.smoothstep(rowRatio, 0.55, 1);
+  const softness = lateWorldFactor * frontZoneFactor;
+
+  return {
+    tierReduction: softness >= 0.85 ? 2 : softness >= 0.35 ? 1 : 0,
   };
 }
 
@@ -360,12 +373,14 @@ export class StarField {
           const maxTier = theme.maxColorTier;
           const t = rows > 1 ? (rows - 1 - row) / (rows - 1) : 0;
           const baseColorIndex = Math.min(Math.floor(t * (maxTier + 1)), maxTier);
+          const frontDurability = getFrontRowDurabilityProfile(rows, row, placement.stageProgress);
+          const softenedBaseColorIndex = Math.max(0, baseColorIndex - frontDurability.tierReduction);
           const starDistance = Math.abs(row - starRow) + Math.abs(col - starCol);
           const inGuardZone = starDistance <= placement.guardRadius;
           const appliedBoost = inGuardZone
             ? Math.max(0, placement.guardTierBoost - Math.max(0, starDistance - 1))
             : 0;
-          const colorIndex = Math.min(baseColorIndex + appliedBoost, maxTier);
+          const colorIndex = Math.min(softenedBaseColorIndex + appliedBoost, maxTier);
           const color = BLOCK_COLORS[colorIndex];
           const baseTierHp = baseHp * (1 + colorIndex);
           const guardHp = inGuardZone

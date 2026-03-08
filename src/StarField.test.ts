@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getBlockLayoutProfile,
+  getFrontRowDurabilityProfile,
   getStarPlacementProfile,
 } from "./StarField";
 import {
@@ -53,39 +54,70 @@ describe("getStarPlacementProfile", () => {
 });
 
 describe("getBlockLayoutProfile", () => {
+  const desktopPaddleTop = PADDLE_Y + PADDLE_HEIGHT / 2;
   const mobilePaddleTop = PADDLE_Y + 1.75 + PADDLE_HEIGHT / 2;
 
-  it("desktop では高段数でも従来レイアウトを維持する", () => {
-    const layout = getBlockLayoutProfile(32, false, mobilePaddleTop);
+  it("3章までは desktop でも従来レイアウトを維持する", () => {
+    const layout = getBlockLayoutProfile(24, false, desktopPaddleTop);
 
     expect(layout.startY).toBe(BLOCK_START_Y);
     expect(layout.spacingY).toBe(BLOCK_SPACING_Y);
   });
 
-  it("mobile でも 24 行以下は従来レイアウトを維持する", () => {
+  it("3章までは mobile でも従来レイアウトを維持する", () => {
     const layout = getBlockLayoutProfile(24, true, mobilePaddleTop);
 
     expect(layout.startY).toBe(BLOCK_START_Y);
     expect(layout.spacingY).toBe(BLOCK_SPACING_Y);
   });
 
-  it("mobile の 4章相当は上へ逃がしつつ間隔は維持する", () => {
+  it("desktop の 4章相当は最下段を上へ逃がす", () => {
+    const rows = 28;
+    const layout = getBlockLayoutProfile(rows, false, desktopPaddleTop);
+    const lowestBlockY = layout.startY - layout.spacingY * (rows - 1);
+
+    expect(layout.startY).toBeGreaterThan(BLOCK_START_Y);
+    expect(layout.spacingY).toBeCloseTo(BLOCK_SPACING_Y);
+    expect(lowestBlockY).toBeGreaterThan(desktopPaddleTop + BLOCK_HEIGHT / 2 + 1.1);
+  });
+
+  it("mobile の 4章相当も最下段を上へ逃がす", () => {
     const rows = 28;
     const layout = getBlockLayoutProfile(rows, true, mobilePaddleTop);
     const lowestBlockY = layout.startY - layout.spacingY * (rows - 1);
 
     expect(layout.startY).toBeGreaterThan(BLOCK_START_Y);
     expect(layout.spacingY).toBeCloseTo(BLOCK_SPACING_Y);
-    expect(lowestBlockY).toBeGreaterThan(mobilePaddleTop + BLOCK_HEIGHT / 2);
+    expect(lowestBlockY).toBeGreaterThan(mobilePaddleTop + BLOCK_HEIGHT / 2 + 1.1);
   });
 
-  it("mobile の 5章相当は縦間隔を詰めて最下段をパドルより上に保つ", () => {
+  it("5章相当は縦間隔を詰めて最下段をさらに離す", () => {
     const rows = 32;
-    const layout = getBlockLayoutProfile(rows, true, mobilePaddleTop);
+    const layout = getBlockLayoutProfile(rows, false, desktopPaddleTop);
     const lowestBlockY = layout.startY - layout.spacingY * (rows - 1);
 
     expect(layout.startY).toBeGreaterThan(BLOCK_START_Y);
     expect(layout.spacingY).toBeLessThan(BLOCK_SPACING_Y);
-    expect(lowestBlockY).toBeGreaterThan(mobilePaddleTop + BLOCK_HEIGHT / 2 + 1.3);
+    expect(lowestBlockY).toBeGreaterThan(desktopPaddleTop + BLOCK_HEIGHT / 2 + 1.7);
+  });
+});
+
+describe("getFrontRowDurabilityProfile", () => {
+  it("序盤は手前でも tier 配置をほぼ変えない", () => {
+    const profile = getFrontRowDurabilityProfile(28, 27, 0.1);
+
+    expect(profile.tierReduction).toBe(0);
+  });
+
+  it("後半の手前は低 tier ブロックを増やす", () => {
+    const profile = getFrontRowDurabilityProfile(32, 31, 0.9);
+
+    expect(profile.tierReduction).toBe(2);
+  });
+
+  it("後半でも上段はほぼ据え置く", () => {
+    const profile = getFrontRowDurabilityProfile(32, 4, 0.9);
+
+    expect(profile.tierReduction).toBe(0);
   });
 });

@@ -5,7 +5,14 @@ import { StarField } from "./StarField";
 import { HUD } from "./HUD";
 import { Particles } from "./Particles";
 import { WorldBackground } from "./WorldBackground";
-import { COMBO_CELEBRATION_COPY, DISPLAY_TITLE, FEVER_TRIGGER_COPY, formatLayerLabel } from "./gameContent";
+import {
+  COMBO_CELEBRATION_COPY,
+  DISPLAY_TITLE,
+  FEVER_TRIGGER_COPY,
+  STAR_DESTROYED_HEADLINES,
+  STAR_DESTROYED_PRAISE_COPY,
+  formatLayerLabel,
+} from "./gameContent";
 import {
   GAME_WIDTH,
   GAME_HEIGHT,
@@ -50,6 +57,22 @@ import {
 
 type GameState = "start" | "playing" | "gameover" | "waveclear" | "worldclear";
 type RankingEntry = { score: number; world: string; date: string };
+const STAR_PRAISE_DELAY_MS = 520;
+const WAVE_CLEAR_OVERLAY_DELAY_MS = 5400;
+const WORLD_CLEAR_OVERLAY_DELAY_MS = 7000;
+
+export function getBallDistanceSpeedMultiplier(input: {
+  distanceRatio: number;
+  verticalVelocity: number;
+  world: number;
+}) {
+  if (input.verticalVelocity >= 0) {
+    return 1;
+  }
+
+  const clampedRatio = THREE.MathUtils.clamp(input.distanceRatio, 0, 1);
+  return THREE.MathUtils.lerp(0.72, 1, clampedRatio);
+}
 
 export class Game {
   private renderer: THREE.WebGLRenderer;
@@ -68,7 +91,8 @@ export class Game {
   private wave = 1;
   private paddleBounces = 0;
   private blocksDestroyed = 0;
-  private reachShown = false;
+  private reachStage = 0;
+  private feverReadyShown = false;
   private unlockedWorld = 1;
   private progression: ProgressionState = createProgressionState();
 
@@ -110,6 +134,8 @@ export class Game {
   private zoomTarget = 1;
   private zoomCurrent = 1;
   private renderPixelRatio = 1;
+  private ballSparkTimer = 0;
+  private ballSparkCooldown = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -600,6 +626,35 @@ export class Game {
     return this.coarsePointer ? 0.88 : 1;
   }
 
+  private getBallPaddleDistanceRatio(): number {
+    const ceiling = GAME_HEIGHT / 2 - BALL_RADIUS;
+    const travel = Math.max(0.001, ceiling - this.paddle.top);
+    const distance = THREE.MathUtils.clamp(this.ball.mesh.position.y - this.paddle.top, 0, travel);
+    return distance / travel;
+  }
+
+  private getBallDistanceSpeedMultiplier(): number {
+    return getBallDistanceSpeedMultiplier({
+      distanceRatio: this.getBallPaddleDistanceRatio(),
+      verticalVelocity: this.ball.vy,
+      world: this.world,
+    });
+  }
+
+  private syncBallDistanceSpeed() {
+    if (!this.ball.active) return;
+    const velocity = Math.hypot(this.ball.vx, this.ball.vy);
+    if (velocity <= 0.0001) return;
+
+    const targetSpeed = Math.min(
+      this.ball.speed * this.getBallDistanceSpeedMultiplier(),
+      this.getMaxSpeed()
+    );
+    const speedScale = targetSpeed / velocity;
+    this.ball.vx *= speedScale;
+    this.ball.vy *= speedScale;
+  }
+
   private getWorldName(): string {
     return WORLD_THEMES[(this.world - 1) % WORLD_THEMES.length].name;
   }
@@ -633,6 +688,10 @@ export class Game {
     );
     this.hud.updateBallColor(this.getBallColorHex());
     this.hud.updateFever(this.progression.feverGauge, this.progression.feverActive);
+    if (!this.progression.feverActive && !this.feverReadyShown && this.progression.feverGauge >= 80) {
+      this.feverReadyShown = true;
+      this.showCenterCallout(this.pick(["ざわり濃い!!", "アガり近い!!"]), "atsu");
+    }
   }
 
   private startNewGame(startWorld: number) {
@@ -641,7 +700,8 @@ export class Game {
     this.wave = 1;
     this.paddleBounces = 0;
     this.blocksDestroyed = 0;
-    this.reachShown = false;
+    this.reachStage = 0;
+    this.feverReadyShown = false;
     this.progression = createProgressionState();
     this.resetRoundMomentum();
     this.syncBallTier();
@@ -668,7 +728,8 @@ export class Game {
   private nextWave() {
     this.wave += 1;
     this.blocksDestroyed = 0;
-    this.reachShown = false;
+    this.reachStage = 0;
+    this.feverReadyShown = false;
     this.resetRoundMomentum();
     this.ball.speed = Math.min(this.ball.speed + this.getWaveSpeedIncrement(), this.getMaxSpeed());
     this.starField.generate(this.wave - 1, this.world - 1, {
@@ -694,7 +755,8 @@ export class Game {
     this.world += 1;
     this.wave = 1;
     this.blocksDestroyed = 0;
-    this.reachShown = false;
+    this.reachStage = 0;
+    this.feverReadyShown = false;
     this.progression = createProgressionState();
     this.resetRoundMomentum();
     this.syncBallTier();
@@ -782,16 +844,62 @@ export class Game {
     return items[Math.floor(Math.random() * items.length)];
   }
 
+  private pickStarPraiseWords(count: number): string[] {
+    const pool = [...STAR_DESTROYED_PRAISE_COPY];
+    for (let index = pool.length - 1; index > 0; index--) {
+      const swapIndex = Math.floor(Math.random() * (index + 1));
+      [pool[index], pool[swapIndex]] = [pool[swapIndex], pool[index]];
+    }
+
+    if (count <= pool.length) {
+      return pool.slice(0, count);
+    }
+
+    return Array.from({ length: count }, (_, index) => pool[index % pool.length] ?? "");
+  }
+
+  private showCenterCallout(text: string, cssClass: "atsu" | "gekiatsu" | "kakuhen") {
+    this.hud.showBigText(text, cssClass);
+  }
+
+  private emitBallSparkBurst(strength = 1) {
+    const color = this.progression.ballColorIndex >= BLOCK_COLORS.length
+      ? 0xffffff
+      : BLOCK_COLORS[this.progression.ballColorIndex];
+    this.particles.colorChangeBurst(this.ball.mesh.position.x, this.ball.mesh.position.y, color, strength);
+  }
+
+  private triggerLevelUpFx(levelUps: number, reachedMaxTier: boolean) {
+    const strength = reachedMaxTier ? 3.1 : 2 + Math.max(0, levelUps - 1) * 0.55;
+    this.ballSparkTimer = Math.max(this.ballSparkTimer, reachedMaxTier ? 2.2 : 1.35 + levelUps * 0.24);
+    this.ballSparkCooldown = 0;
+    this.emitBallSparkBurst(strength);
+    this.emitBallSparkBurst(strength * 0.85);
+    const screenPos = this.worldToScreen(this.ball.mesh.position.x, this.ball.mesh.position.y);
+    this.triggerShockwave(screenPos.x, screenPos.y);
+    this.flashScreen("rgba(255,245,180,0.72)", reachedMaxTier ? 240 : 180, reachedMaxTier ? 0.62 : 0.48);
+    this.multiFlash(
+      reachedMaxTier ? 10 : 6,
+      reachedMaxTier ? 42 : 55,
+      reachedMaxTier
+        ? ["#ffffff", "#ffe55c", "#ff9a00", "#fff1a8", "#ffffff"]
+        : ["#fff4c4", "#ffcf4d", "#ff8f00", "#fff1a8"]
+    );
+    this.shake(reachedMaxTier ? 0.95 : 0.6, reachedMaxTier ? 0.55 : 0.34);
+    this.screenZoom(reachedMaxTier ? 1.16 : 1.09);
+    this.startSlowMotion(reachedMaxTier ? 0.32 : 0.18);
+    this.vibrate(reachedMaxTier ? [14, 18, 22, 20, 36] : [12, 12, 22]);
+    this.hud.showLevelUp(this.progression.level);
+  }
+
   private pushProgression(result: ProgressionResult) {
     this.progression = result.state;
     if (result.leveledUp.length > 0) {
-      for (const level of result.leveledUp) {
-        this.hud.showLevelUp(level);
-      }
       this.syncBallTier();
+      const reachedMaxTier = this.progression.ballColorIndex === BALL_MAX_TIER;
+      this.triggerLevelUpFx(result.leveledUp.length, reachedMaxTier);
 
-      if (this.progression.ballColorIndex === BALL_MAX_TIER) {
-        this.hud.showBigText("覚醒!! 黒", "kakuhen");
+      if (reachedMaxTier) {
         this.multiFlash(12, 50, ["#111111", "#ffffff", "#9933cc", "#ffffff"]);
         this.shake(1.1, 0.7);
         this.rainbowFlash(3.5);
@@ -799,14 +907,12 @@ export class Game {
         this.screenZoom(1.15);
         this.vibrate([18, 24, 18, 50, 28]);
       } else {
-        this.multiFlash(4, 80, ["#ffd700", "#ffffff", "#ffaa00", "#ffd700"]);
-        this.shake(0.4, 0.3);
-        this.screenZoom(1.05);
-        this.vibrate([12, 18, 16]);
+        this.rainbowFlash(0.85);
       }
     }
 
     if (result.feverTriggered) {
+      this.feverReadyShown = false;
       this.hud.showBigText(this.pick(FEVER_TRIGGER_COPY), "kakuhen");
       this.multiFlash(10, 55, ["#ffd700", "#ff8844", "#ff4477", "#ffffff"]);
       this.rainbowFlash(4);
@@ -885,15 +991,23 @@ export class Game {
     this.blocksDestroyed += 1;
     const count = this.blocksDestroyed;
 
-    if (count === 10) {
+    if (count === 5) {
+      this.showCenterCallout("波が来た!", "atsu");
+    } else if (count === 10) {
       this.hud.showBigText("好調!", "atsu");
+    } else if (count === 20) {
+      this.showCenterCallout(this.pick(["ざわり濃い!!", "流れが見えた!!"]), "atsu");
     } else if (count === 30) {
       this.hud.showBigText("絶好調!!", "atsu");
       this.shake(0.3, 0.2);
+    } else if (count === 45) {
+      this.showCenterCallout(this.pick(["銀河が寄る!!", "当たりの息がある!!"]), "gekiatsu");
     } else if (count === 60) {
       this.hud.showBigText(this.pick(["無双!!", "暴れ打ち!!"]), "gekiatsu");
       this.shake(0.45, 0.28);
       this.rainbowFlash(1.4);
+    } else if (count === 80) {
+      this.showCenterCallout(this.pick(["止まる気がせん!!", "盤ごと熱い!!"]), "gekiatsu");
     } else if (count === 100) {
       this.hud.showBigText("破壊神降臨!!!", "kakuhen");
       this.shake(0.7, 0.45);
@@ -902,12 +1016,18 @@ export class Game {
     }
 
     const alive = this.starField.aliveCount;
-    if (!this.reachShown && alive <= 5 && alive > 0) {
-      this.reachShown = true;
+    if (this.reachStage === 0 && alive <= 12 && alive > 5) {
+      this.reachStage = 1;
+      this.showCenterCallout("当たり星が見えた!!", "atsu");
+    } else if (this.reachStage <= 1 && alive <= 5 && alive > 2) {
+      this.reachStage = 2;
       this.hud.showBigText("リーチ!!", "gekiatsu");
       this.shake(0.4, 0.24);
       this.rainbowFlash(1.8);
       this.multiFlash(4, 90, ["#ffd700", "#ffffff", "#ff8800", "#ffd700"]);
+    } else if (this.reachStage <= 2 && alive <= 2 && alive > 0) {
+      this.reachStage = 3;
+      this.showCenterCallout("もう通る!!", "gekiatsu");
     }
   }
 
@@ -986,8 +1106,8 @@ export class Game {
           const screenPos = this.worldToScreen(sx, sy);
           this.triggerShockwave(screenPos.x, screenPos.y);
           this.hud.showScorePopup(screenPos.x, screenPos.y, Math.round(points * getScoreMultiplier(this.progression)));
-          if (resolution.destroysImmediately && Math.random() < 0.25) {
-            this.hud.showBigText(this.pick(["貫通!!", "突破!", "粉砕!", "一閃!"]), "atsu");
+          if (resolution.destroysImmediately && Math.random() < 0.45) {
+            this.hud.showBigText(this.pick(["貫通!!", "突破!", "粉砕!", "一閃!", "星路ひらく!", "通った!!"]), "atsu");
           }
         } else {
           this.pushProgression(chargeFever(this.progression, Math.max(3, Math.floor(resolution.feverGain / 3))));
@@ -1036,7 +1156,11 @@ export class Game {
     const screenPos = this.worldToScreen(sx, sy);
     this.triggerShockwave(screenPos.x, screenPos.y);
     this.hud.showScorePopup(screenPos.x, screenPos.y, Math.round(starBonus * getScoreMultiplier(this.progression)));
-    this.hud.showBigText("★ 当たり星到達 ★", "kakuhen");
+    const starPraiseHeadline = this.pick(STAR_DESTROYED_HEADLINES);
+    const starPraiseWords = this.pickStarPraiseWords(64);
+    setTimeout(() => {
+      this.hud.showStarPraise(starPraiseHeadline, starPraiseWords);
+    }, STAR_PRAISE_DELAY_MS);
     this.vibrate([30, 20, 30, 20, 70]);
     this.updateHUD();
 
@@ -1073,7 +1197,7 @@ export class Game {
             () => this.showStartScreen()
           );
         }
-      }, 1800);
+      }, WORLD_CLEAR_OVERLAY_DELAY_MS);
     } else {
       this.state = "waveclear";
       setTimeout(() => {
@@ -1086,7 +1210,7 @@ export class Game {
           "銀河選択",
           () => this.showStartScreen()
         );
-      }, 1400);
+      }, WAVE_CLEAR_OVERLAY_DELAY_MS);
     }
   }
 
@@ -1159,6 +1283,16 @@ export class Game {
       if (this.slowMotionTimer <= 0) this.timeScale = 1;
     }
 
+    if (this.ballSparkTimer > 0) {
+      this.ballSparkTimer -= dt;
+      this.ballSparkCooldown -= dt;
+      if (this.ballSparkCooldown <= 0) {
+        const strength = this.progression.ballColorIndex >= BALL_MAX_TIER ? 2.1 : 1.35;
+        this.emitBallSparkBurst(strength);
+        this.ballSparkCooldown = this.progression.ballColorIndex >= BALL_MAX_TIER ? 0.03 : 0.045;
+      }
+    }
+
     this.progression = tickTimers(this.progression, dt);
 
     if (this.rainbowTimer > 0) {
@@ -1185,6 +1319,7 @@ export class Game {
         this.ball.mesh.position.y = this.paddle.y + 0.5;
       }
 
+      this.syncBallDistanceSpeed();
       const lost = this.ball.update(this.timeScale);
       if (lost) {
         this.shake(0.9, 0.45);
@@ -1207,6 +1342,7 @@ export class Game {
 
       this.checkBallPaddle();
       this.checkBallBlocks();
+      this.syncBallDistanceSpeed();
       this.starField.update();
       this.ball.updateTrail();
       this.updateHUD();
