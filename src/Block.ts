@@ -4,7 +4,7 @@ import {
   INDESTRUCTIBLE_COLOR, INDESTRUCTIBLE_EMISSIVE, INDESTRUCTIBLE_COLOR_INDEX,
 } from "./constants";
 
-export type BlockKind = "normal" | "indestructible" | "bomb" | "split" | "reflect";
+export type BlockKind = "normal" | "indestructible" | "extend" | "split" | "reflect";
 
 export class Block {
   mesh: THREE.Mesh;
@@ -64,25 +64,25 @@ export class Block {
       this.baseColor = new THREE.Color(INDESTRUCTIBLE_COLOR);
       this.baseEmissive = new THREE.Color(INDESTRUCTIBLE_EMISSIVE);
       this.baseEmissiveIntensity = 0.8;
-    } else if (this.kind === "bomb") {
+    } else if (this.kind === "extend") {
       mat = new THREE.MeshStandardMaterial({
-        color: 0xff6a3d,
-        emissive: 0xff3a18,
-        emissiveIntensity: 0.75,
-        metalness: 0.3,
-        roughness: 0.25,
+        color: 0xffc14f,
+        emissive: 0xff9f1a,
+        emissiveIntensity: 0.72,
+        metalness: 0.28,
+        roughness: 0.24,
       });
       const edgeGeo = new THREE.EdgesGeometry(geo);
       const edgeMat = new THREE.LineBasicMaterial({
-        color: 0xfff2d8,
+        color: 0xfff0c2,
         transparent: true,
         opacity: 0.9,
       });
       this.edgeGlow = new THREE.LineSegments(edgeGeo, edgeMat);
       this.edgeGlow.position.set(x, y, 0.01);
-      this.baseColor = new THREE.Color(0xff6a3d);
-      this.baseEmissive = new THREE.Color(0xff3a18);
-      this.baseEmissiveIntensity = 0.75;
+      this.baseColor = new THREE.Color(0xffc14f);
+      this.baseEmissive = new THREE.Color(0xff9f1a);
+      this.baseEmissiveIntensity = 0.72;
     } else if (this.kind === "split") {
       mat = new THREE.MeshStandardMaterial({
         color: 0x57ffe5,
@@ -142,22 +142,22 @@ export class Block {
   private addSpecialAccent() {
     const zFront = BLOCK_DEPTH / 2 + 0.03;
 
-    if (this.kind === "bomb") {
-      const core = new THREE.Mesh(
-        new THREE.SphereGeometry(0.12, 10, 10),
-        new THREE.MeshBasicMaterial({ color: 0xfff4b5 })
+    if (this.kind === "extend") {
+      const centerBar = new THREE.Mesh(
+        new THREE.BoxGeometry(BLOCK_WIDTH * 0.48, 0.08, 0.02),
+        new THREE.MeshBasicMaterial({ color: 0x3b2200 })
       );
-      core.position.set(0, 0, zFront + 0.01);
-      this.mesh.add(core);
+      centerBar.position.set(0, 0, zFront + 0.01);
+      this.mesh.add(centerBar);
 
-      for (const rotationZ of [Math.PI / 4, -Math.PI / 4]) {
-        const bar = new THREE.Mesh(
-          new THREE.BoxGeometry(BLOCK_WIDTH * 0.5, 0.07, 0.02),
-          new THREE.MeshBasicMaterial({ color: 0x2a0600 })
+      for (const direction of [-1, 1] as const) {
+        const arrowHead = new THREE.Mesh(
+          new THREE.ConeGeometry(0.07, 0.16, 3),
+          new THREE.MeshBasicMaterial({ color: 0xfff7cf })
         );
-        bar.position.set(0, 0, zFront);
-        bar.rotation.z = rotationZ;
-        this.mesh.add(bar);
+        arrowHead.position.set(direction * (BLOCK_WIDTH * 0.32), 0, zFront + 0.01);
+        arrowHead.rotation.z = direction < 0 ? Math.PI / 2 : -Math.PI / 2;
+        this.mesh.add(arrowHead);
       }
       return;
     }
@@ -256,10 +256,10 @@ export class Block {
       return;
     }
 
-    if (this.kind === "bomb") {
+    if (this.kind === "extend") {
       mat.color.copy(this.baseColor).offsetHSL(0, 0, pulse * 0.08);
       mat.emissive.copy(this.baseEmissive);
-      mat.emissiveIntensity = this.baseEmissiveIntensity + pulse * 0.35;
+      mat.emissiveIntensity = this.baseEmissiveIntensity + pulse * 0.32;
       if (this.edgeGlow) {
         const edgeMat = this.edgeGlow.material as THREE.LineBasicMaterial;
         edgeMat.opacity = 0.65 + pulse * 0.35;

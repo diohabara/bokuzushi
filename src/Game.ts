@@ -27,7 +27,6 @@ import {
   WORLD_SPEED_BONUS,
   MAX_WORLDS,
   WORLD_THEMES,
-  PADDLE_WIDTH,
   MOBILE_PADDLE_LIFT,
   BLOCK_WIDTH,
   BLOCK_HEIGHT,
@@ -68,6 +67,9 @@ const SPLIT_BALL_ANGLE_OFFSET = 0.32;
 const INTERNAL_BALL_SAFETY_LIMIT = 12;
 const REFLECT_BLOCK_DAMAGE = 1;
 const DEBUG_UNLOCK_STORAGE_KEY = "bokuzushi_debug_unlock_all";
+const PADDLE_EXTEND_DURATION_SEC = 16;
+const PADDLE_EXTEND_STEP = 0.22;
+const PADDLE_EXTEND_MAX_MULTIPLIER = 1.88;
 
 function parseUnlockedWorld(rawValue: string | null | undefined) {
   const parsed = Number.parseInt(rawValue ?? "1", 10);
@@ -86,6 +88,14 @@ export function isDebugUnlockAllEnabled(input: {
   }
 
   return input.storageValue === "1" || input.storageValue === "true";
+}
+
+export function getExtendedPaddleMultiplier(currentMultiplier: number) {
+  return THREE.MathUtils.clamp(
+    currentMultiplier + PADDLE_EXTEND_STEP,
+    1,
+    PADDLE_EXTEND_MAX_MULTIPLIER
+  );
 }
 
 export function getRankingStorageKey(world: number) {
@@ -186,6 +196,7 @@ export class Game {
   private renderPixelRatio = 1;
   private ballSparkTimer = 0;
   private ballSparkCooldown = 0;
+  private paddleExtendTimer = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -326,9 +337,23 @@ export class Game {
     }
   }
 
+  private resetPaddleBoost() {
+    this.paddleExtendTimer = 0;
+    this.paddle.setWidthMultiplier(1);
+  }
+
+  private extendPaddle() {
+    this.paddleExtendTimer = PADDLE_EXTEND_DURATION_SEC;
+    this.paddle.setWidthMultiplier(getExtendedPaddleMultiplier(this.paddle.widthScale));
+    this.flashScreen("rgba(255,205,120,0.42)", 120, 0.22);
+    this.shake(0.14, 0.14);
+    this.hud.showBigText(this.pick(["伸びた!!", "受けやすい!!", "返し板拡張!!"]), "atsu");
+  }
+
   private applyMobileLayout() {
     const lift = this.coarsePointer ? MOBILE_PADDLE_LIFT : 0;
     this.paddle.setY(this.paddle.baseY + lift);
+    this.resetPaddleBoost();
     this.resetBalls(this.getBaseSpeed());
   }
 
@@ -665,6 +690,7 @@ export class Game {
     this.state = "start";
     this.rankingWorld = Math.max(1, Math.min(this.world, this.unlockedWorld));
     this.initialServePending = false;
+    this.resetPaddleBoost();
     this.resetBalls(this.getBaseSpeed());
     this.pauseBtn.classList.add("hidden");
     this.pauseOverlay.classList.remove("show");
@@ -859,6 +885,7 @@ export class Game {
     this.feverReadyShown = false;
     this.progression = createProgressionState();
     this.resetRoundMomentum();
+    this.resetPaddleBoost();
     this.syncBallTier();
     this.resetBalls(this.getBaseSpeed());
     this.starField.generate(0, this.world - 1, {
@@ -884,6 +911,7 @@ export class Game {
     this.reachStage = 0;
     this.feverReadyShown = false;
     this.resetRoundMomentum();
+    this.resetPaddleBoost();
     const nextSpeed = Math.min(this.getPrimaryBall().speed + this.getWaveSpeedIncrement(), this.getMaxSpeed());
     this.resetBalls(nextSpeed);
     this.starField.generate(this.wave - 1, this.world - 1, {
@@ -911,6 +939,7 @@ export class Game {
     this.feverReadyShown = false;
     this.progression = createProgressionState();
     this.resetRoundMomentum();
+    this.resetPaddleBoost();
     this.syncBallTier();
     this.resetBalls(this.getBaseSpeed());
     this.starField.generate(0, this.world - 1, {
@@ -1227,31 +1256,6 @@ export class Game {
     }
   }
 
-  private triggerBombExplosion(origin: Block, seen = new Set<string>()) {
-    const key = `${origin.row}:${origin.col}`;
-    if (seen.has(key)) return;
-    seen.add(key);
-
-    const screenPos = this.worldToScreen(origin.mesh.position.x, origin.mesh.position.y);
-    this.flashScreen("rgba(255,140,64,0.7)", 180, 0.4);
-    this.triggerShockwave(screenPos.x, screenPos.y);
-    this.shake(0.42, 0.2);
-
-    const neighbors = this.starField.getAliveBlocks().filter((block) => {
-      if (block === origin) return false;
-      return Math.abs(block.row - origin.row) <= 1 && Math.abs(block.col - origin.col) <= 1;
-    });
-
-    for (const block of neighbors) {
-      if (!block.alive) continue;
-      block.destroy();
-      this.rewardDestroyedBlock(block, block.maxHp * 10, 8, { chain: true });
-      if (block.kind === "bomb") {
-        this.triggerBombExplosion(block, seen);
-      }
-    }
-  }
-
   private checkBallPaddle() {
     for (const ball of this.getActiveBalls()) {
       const bx = ball.mesh.position.x;
@@ -1263,7 +1267,7 @@ export class Game {
         && bx + BALL_RADIUS >= this.paddle.left
         && bx - BALL_RADIUS <= this.paddle.right
       ) {
-        const hitPos = (bx - this.paddle.x) / (PADDLE_WIDTH / 2);
+        const hitPos = (bx - this.paddle.x) / this.paddle.halfWidth;
         const clampedHit = Math.max(-0.95, Math.min(0.95, hitPos));
         const angle = Math.PI / 2 - clampedHit * (Math.PI / 3);
         ball.vx = Math.cos(angle) * ball.speed;
@@ -1291,6 +1295,15 @@ export class Game {
       this.spawnSplitBalls(ball);
       this.rewardDestroyedBlock(block, block.maxHp * 12, 16, { destroysImmediately: true });
       this.particles.colorChangeBurst(sx, sy, 0x57ffe5, 1.3);
+      this.updateHUD();
+      return;
+    }
+
+    if (block.kind === "extend") {
+      block.destroy();
+      this.extendPaddle();
+      this.rewardDestroyedBlock(block, block.maxHp * 11, 12, { destroysImmediately: true });
+      this.particles.colorChangeBurst(sx, sy, 0xffc14f, 1.15);
       this.updateHUD();
       return;
     }
@@ -1336,9 +1349,6 @@ export class Game {
         resolution.feverGain,
         { destroysImmediately: resolution.destroysImmediately }
       );
-      if (block.kind === "bomb") {
-        this.triggerBombExplosion(block);
-      }
     } else {
       this.pushProgression(chargeFever(this.progression, Math.max(3, Math.floor(resolution.feverGain / 3))));
       this.particles.hitBurst(sx, sy, this.getBlockColor(block));
@@ -1546,6 +1556,13 @@ export class Game {
     }
 
     this.progression = tickTimers(this.progression, dt);
+
+    if (this.paddleExtendTimer > 0) {
+      this.paddleExtendTimer -= dt;
+      if (this.paddleExtendTimer <= 0) {
+        this.resetPaddleBoost();
+      }
+    }
 
     if (this.rainbowTimer > 0) {
       this.rainbowTimer -= dt;

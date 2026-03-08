@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createSplitBallVelocities,
+  getExtendedPaddleMultiplier,
   getBallDistanceSpeedMultiplier,
   getRankingStorageKey,
   isDebugUnlockAllEnabled,
@@ -135,5 +136,17 @@ describe("createSplitBallVelocities", () => {
     expect(Math.hypot(velocities[1]!.vx, velocities[1]!.vy)).toBeCloseTo(0.2);
     expect(velocities[0]!.vx).toBeCloseTo(-velocities[1]!.vx, 6);
     expect(velocities[0]!.vy).toBeCloseTo(velocities[1]!.vy, 6);
+  });
+});
+
+describe("getExtendedPaddleMultiplier", () => {
+  it("パドル延長は段階的に伸びる", () => {
+    expect(getExtendedPaddleMultiplier(1)).toBeCloseTo(1.22);
+    expect(getExtendedPaddleMultiplier(1.22)).toBeCloseTo(1.44);
+  });
+
+  it("延長は上限で止まる", () => {
+    expect(getExtendedPaddleMultiplier(1.8)).toBeCloseTo(1.88);
+    expect(getExtendedPaddleMultiplier(1.88)).toBeCloseTo(1.88);
   });
 });

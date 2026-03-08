@@ -11,7 +11,8 @@ import {
 export class Paddle {
   mesh: THREE.Mesh;
   readonly baseY = PADDLE_Y;
-  private halfWidth = PADDLE_WIDTH / 2;
+  private readonly baseHalfWidth = PADDLE_WIDTH / 2;
+  private widthMultiplier = 1;
   private targetX = 0;
 
   constructor() {
@@ -36,11 +37,23 @@ export class Paddle {
     this.mesh.position.y = y;
   }
 
+  setWidthMultiplier(multiplier: number) {
+    this.widthMultiplier = Math.max(1, multiplier);
+    this.mesh.scale.x = this.widthMultiplier;
+  }
+
   update() {
     // Smooth follow
     const limit = GAME_WIDTH / 2 - this.halfWidth;
     const clamped = Math.max(-limit, Math.min(limit, this.targetX));
     this.mesh.position.x += (clamped - this.mesh.position.x) * 0.25;
+  }
+
+  get halfWidth() {
+    return this.baseHalfWidth * this.widthMultiplier;
+  }
+  get widthScale() {
+    return this.widthMultiplier;
   }
 
   get left() {
