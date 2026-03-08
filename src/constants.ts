@@ -117,7 +117,7 @@ export const WORLD_THEMES: WorldTheme[] = [
   {
     name: WORLD_CONTENT[4].name, subtitle: WORLD_CONTENT[4].subtitle, emoji: WORLD_CONTENT[4].emoji,
     patterns: ["tunnel", "cross", "dense-grid"],
-    indestructiblePattern: "maze", particleShape: "star",
+    indestructiblePattern: "corridors", particleShape: "star",
     cols: 12, rows: 28, maxColorTier: 5,
     btnColor: "#ffd700", btnBg: "rgba(255,215,0,0.15)",
   },

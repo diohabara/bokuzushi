@@ -89,7 +89,7 @@ export function isDebugUnlockAllEnabled(input: {
 }
 
 export function getExtendedPaddleMultiplier(currentMultiplier: number) {
-  return Math.min(currentMultiplier + 0.5, (GAME_WIDTH / 2) / PADDLE_WIDTH);
+  return Math.min(currentMultiplier + 0.5, (GAME_WIDTH * 0.8) / PADDLE_WIDTH);
 }
 
 export function getRankingStorageKey(world: number) {

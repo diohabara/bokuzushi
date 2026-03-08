@@ -207,12 +207,14 @@ describe("StarField special generation", () => {
     const reflects = starField.blocks.filter((block) => block.kind === "reflect");
     const splits = starField.blocks.filter((block) => block.kind === "split");
     const extendsBlocks = starField.blocks.filter((block) => block.kind === "extend");
+    const indestructibles = starField.blocks.filter((block) => block.kind === "indestructible");
     expect(reflects.length).toBeGreaterThanOrEqual(8);
     expect(splits.length).toBeGreaterThanOrEqual(3);
     expect(extendsBlocks.length).toBeGreaterThanOrEqual(12);
+    expect(indestructibles.length).toBeLessThan(150);
   });
 
-  it("5章は星の真下に直線で抜けられる穴を作らない", () => {
+  it("5章は一直線を防ぎつつも壁を詰め込みすぎない", () => {
     const paddleTop = PADDLE_Y + PADDLE_HEIGHT / 2;
     const starField = new StarField(new THREE.Scene());
     starField.generate(2, 4, { coarsePointer: false, paddleTop });
@@ -230,9 +232,10 @@ describe("StarField special generation", () => {
     );
 
     const barrierRows = new Set(barrierBlocks.map((block) => block.row));
-    for (let row = starRow + 1; row < theme.rows - 1; row++) {
-      expect(barrierRows.has(row)).toBe(true);
-    }
+    expect(barrierRows.has(starRow + 2)).toBe(true);
+    expect(barrierRows.has(theme.rows - 3)).toBe(true);
+    expect(barrierRows.size).toBeGreaterThanOrEqual(Math.floor((theme.rows - starRow - 1) * 0.7));
+    expect(barrierRows.size).toBeLessThan(theme.rows - starRow - 1);
   });
 
   it("同じ銀河と巡目なら特殊ブロック配置は seed 固定で再現される", () => {

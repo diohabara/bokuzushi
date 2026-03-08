@@ -145,8 +145,8 @@ describe("getExtendedPaddleMultiplier", () => {
     expect(getExtendedPaddleMultiplier(1.5)).toBeCloseTo(2);
   });
 
-  it("画面半分の幅で上限に達する", () => {
-    expect(getExtendedPaddleMultiplier(2.5)).toBeCloseTo(16 / 2 / 2.8);
-    expect(getExtendedPaddleMultiplier(10)).toBeCloseTo(16 / 2 / 2.8);
+  it("画面の8割幅で上限に達する", () => {
+    expect(getExtendedPaddleMultiplier(4.3)).toBeCloseTo((16 * 0.8) / 2.8);
+    expect(getExtendedPaddleMultiplier(10)).toBeCloseTo((16 * 0.8) / 2.8);
   });
 });

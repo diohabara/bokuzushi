@@ -456,26 +456,23 @@ function applyWorldFiveRicochetBarrier(
   starRow: number,
   starCol: number
 ) {
-  for (let row = starRow + 1; row < rows - 1; row++) {
-    const segment = Math.floor((row - (starRow + 1)) / 2);
+  for (let row = starRow + 2; row < rows - 2; row += 2) {
+    const segment = Math.floor((row - (starRow + 2)) / 2);
     const direction = segment % 2 === 0 ? -1 : 1;
-    const gateCols = [
-      clampCol(starCol + direction * 2, cols),
+    const barrierCols = new Set([
+      clampCol(starCol + direction, cols),
+      clampCol(starCol - direction * 2, cols),
+    ]);
+    const reliefCols = [
+      clampCol(starCol, cols),
       clampCol(starCol + direction * 3, cols),
     ];
-    const barrierCols = new Set([
-      clampCol(starCol - 1, cols),
-      clampCol(starCol, cols),
-      clampCol(starCol + 1, cols),
-      clampCol(starCol - direction * 2, cols),
-      clampCol(starCol - direction * 3, cols),
-    ]);
 
     for (const col of barrierCols) {
       grid[row][col] = true;
       indestructibleMask[row][col] = true;
     }
-    for (const col of gateCols) {
+    for (const col of reliefCols) {
       grid[row][col] = false;
       indestructibleMask[row][col] = false;
     }
@@ -872,7 +869,12 @@ export class StarField {
           const guardHp = inGuardZone
             ? Math.ceil(baseTierHp * placement.guardHpMultiplier)
             : baseTierHp;
-          const specialKind = getTierEffectKind(worldIndex, adjustedBaseColorIndex);
+          const forcedSpecialKind = worldIndex === WORLD_THEMES.length - 1
+            ? specialKindsByCell.get(`${row}:${col}`) ?? "normal"
+            : "normal";
+          const specialKind = forcedSpecialKind === "normal"
+            ? getTierEffectKind(worldIndex, adjustedBaseColorIndex)
+            : forcedSpecialKind;
           const specialStats = getSpecialBlockStats(
             specialKind,
             boostedColorIndex,
