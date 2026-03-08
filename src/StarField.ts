@@ -244,16 +244,17 @@ export function getStarPlacementProfile(worldIndex: number, waveIndex: number) {
   const baseBottomRatio = waveBottomRatios[waveIndex % waveBottomRatios.length] ?? 0.5;
   const worldDepthBonus = Math.min(worldIndex * 0.02, 0.06);
   const bottomRatio = Math.min(baseBottomRatio + worldDepthBonus, 0.93);
+  const isFinalWorld = worldIndex === WORLD_THEMES.length - 1;
   return {
     stageProgress,
     bottomRatio,
     starDepth: 1 - bottomRatio,
     colOffsetBase: stageProgress < 0.35 ? 1 : 2,
     allowWideOffset: stageProgress > 0.7,
-    pathHalfWidth: stageProgress < 0.34 ? 1 : 0,
-    guardTierBoost: stageProgress < 0.3 ? 0 : stageProgress < 0.68 ? 1 : 2,
-    guardHpMultiplier: 1 + stageProgress * 0.75,
-    guardRadius: stageProgress < 0.45 ? 1 : 2,
+    pathHalfWidth: isFinalWorld ? 1 : stageProgress < 0.34 ? 1 : 0,
+    guardTierBoost: isFinalWorld ? 1 : stageProgress < 0.3 ? 0 : stageProgress < 0.68 ? 1 : 2,
+    guardHpMultiplier: isFinalWorld ? 1.35 : 1 + stageProgress * 0.75,
+    guardRadius: isFinalWorld ? 1 : stageProgress < 0.45 ? 1 : 2,
   };
 }
 
@@ -598,7 +599,6 @@ function getStrategicSpecialLayout(
       if (waveIndex >= 2) {
         for (const [row, leftOffset, rightOffset] of [
           [clampRow(starRow + 4, rows), shoulderNear, pathHalfWidth + 1],
-          [clampRow(starRow + 5, rows), pathHalfWidth + 1, shoulderNear],
         ] as const) {
           pushPlacement("reflect", row, starCol - leftOffset, 0, 0);
           pushPlacement("reflect", row, starCol + rightOffset, 0, 0);
@@ -613,8 +613,6 @@ function getStrategicSpecialLayout(
         clampCell(starRow + 2, starCol + (pathHalfWidth + 1), rows, cols),
         clampCell(lowerMidRow, starCol - shoulderWider, rows, cols),
         clampCell(lowerMidRow, starCol + shoulderWider, rows, cols),
-        clampCell(frontRow, starCol - shoulderNear, rows, cols),
-        clampCell(frontRow, starCol + shoulderNear, rows, cols),
       ]) {
         pushSupport(guard.row, guard.col);
       }

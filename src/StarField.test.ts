@@ -50,12 +50,22 @@ describe("getStarPlacementProfile", () => {
 
   it("後半ほど通路が細く、星周辺の防御が厚くなる", () => {
     const early = getStarPlacementProfile(0, 0);
-    const late = getStarPlacementProfile(4, 2);
+    const late = getStarPlacementProfile(3, 2);
 
     expect(early.pathHalfWidth).toBeGreaterThan(late.pathHalfWidth);
     expect(early.guardTierBoost).toBeLessThan(late.guardTierBoost);
     expect(early.guardHpMultiplier).toBeLessThan(late.guardHpMultiplier);
     expect(early.guardRadius).toBeLessThanOrEqual(late.guardRadius);
+  });
+
+  it("5章は救済のために通路と星周りの守りを少し緩める", () => {
+    const penultimate = getStarPlacementProfile(3, 2);
+    const finalWorld = getStarPlacementProfile(4, 2);
+
+    expect(finalWorld.pathHalfWidth).toBeGreaterThanOrEqual(penultimate.pathHalfWidth);
+    expect(finalWorld.guardTierBoost).toBeLessThanOrEqual(penultimate.guardTierBoost);
+    expect(finalWorld.guardHpMultiplier).toBeLessThan(penultimate.guardHpMultiplier);
+    expect(finalWorld.guardRadius).toBeLessThanOrEqual(penultimate.guardRadius);
   });
 });
 
@@ -197,7 +207,7 @@ describe("StarField special generation", () => {
     const reflects = starField.blocks.filter((block) => block.kind === "reflect");
     const splits = starField.blocks.filter((block) => block.kind === "split");
     const extendsBlocks = starField.blocks.filter((block) => block.kind === "extend");
-    expect(reflects.length).toBeGreaterThanOrEqual(10);
+    expect(reflects.length).toBeGreaterThanOrEqual(8);
     expect(splits.length).toBeGreaterThanOrEqual(3);
     expect(extendsBlocks.length).toBeGreaterThanOrEqual(12);
   });
