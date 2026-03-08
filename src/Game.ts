@@ -27,6 +27,7 @@ import {
   WORLD_SPEED_BONUS,
   MAX_WORLDS,
   WORLD_THEMES,
+  PADDLE_WIDTH,
   MOBILE_PADDLE_LIFT,
   BLOCK_WIDTH,
   BLOCK_HEIGHT,
@@ -64,7 +65,7 @@ const WAVE_CLEAR_OVERLAY_DELAY_MS = 3600;
 const WORLD_CLEAR_OVERLAY_DELAY_MS = 4700;
 const MOBILE_BOTTOM_UI_SAFE_SPACE = 6.2;
 const SPLIT_BALL_ANGLE_OFFSET = 0.32;
-const INTERNAL_BALL_SAFETY_LIMIT = 12;
+const INTERNAL_BALL_SAFETY_LIMIT = 32;
 const REFLECT_BLOCK_DAMAGE = 1;
 const DEBUG_UNLOCK_STORAGE_KEY = "bokuzushi_debug_unlock_all";
 
@@ -88,7 +89,7 @@ export function isDebugUnlockAllEnabled(input: {
 }
 
 export function getExtendedPaddleMultiplier(currentMultiplier: number) {
-  return currentMultiplier * 1.5;
+  return Math.min(currentMultiplier + 0.5, (GAME_WIDTH / 2) / PADDLE_WIDTH);
 }
 
 export function getRankingStorageKey(world: number) {

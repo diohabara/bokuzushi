@@ -140,13 +140,13 @@ describe("createSplitBallVelocities", () => {
 });
 
 describe("getExtendedPaddleMultiplier", () => {
-  it("パドル延長は取るたびに1.5倍ずつ伸びる", () => {
+  it("パドル延長は取るたびに一定量ずつ伸びる", () => {
     expect(getExtendedPaddleMultiplier(1)).toBeCloseTo(1.5);
-    expect(getExtendedPaddleMultiplier(1.5)).toBeCloseTo(2.25);
+    expect(getExtendedPaddleMultiplier(1.5)).toBeCloseTo(2);
   });
 
-  it("上限なしでさらに大きくできる", () => {
-    expect(getExtendedPaddleMultiplier(3)).toBeCloseTo(4.5);
-    expect(getExtendedPaddleMultiplier(10)).toBeCloseTo(15);
+  it("画面半分の幅で上限に達する", () => {
+    expect(getExtendedPaddleMultiplier(2.5)).toBeCloseTo(16 / 2 / 2.8);
+    expect(getExtendedPaddleMultiplier(10)).toBeCloseTo(16 / 2 / 2.8);
   });
 });
