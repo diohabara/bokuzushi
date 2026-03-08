@@ -167,11 +167,7 @@ export class HUD {
 
   showCombo(count: number) {
     this.comboEl.textContent = getComboLabelCopy(count);
-    const minSize = 28;
-    const growth = Math.max(count - 1, 0) * 6;
-    const maxFontSize = minSize + growth;
-    const viewportSize = 6 + Math.max(count - 1, 0) * 0.7;
-    this.comboEl.style.setProperty("--combo-font-size", `clamp(${minSize}px, ${viewportSize}vw, ${maxFontSize}px)`);
+    this.comboEl.style.setProperty("--combo-font-size", "clamp(20px, 2.8vw, 34px)");
     this.comboEl.classList.remove("show");
     void this.comboEl.offsetWidth;
     this.comboEl.classList.add("show");

@@ -825,6 +825,8 @@
         transform: translateY(-50%);
         z-index: 16;
         opacity: 0;
+        width: min(44vw, 620px);
+        max-width: min(44vw, 620px);
       }
 
       #level-up { display: none; }
@@ -834,6 +836,10 @@
         font-size: var(--combo-font-size, clamp(28px, 6vw, 48px));
         font-weight: 900;
         color: #ff4444;
+        line-height: 1.15;
+        text-align: right;
+        white-space: normal;
+        word-break: break-all;
         text-shadow: 0 0 30px #ff0000, 0 0 60px #ff4400, 0 0 100px #ff0000;
       }
 
