@@ -91,11 +91,11 @@ export const FEVER_TRIGGER_COPY = [
 ];
 
 export const STAR_DESTROYED_HEADLINES = [
-  "大天才!!",
-  "神業!!",
-  "銀河級!!",
-  "うますぎる!!",
-  "星が折れた!!",
+  "天才!",
+  "神業!",
+  "銀河級",
+  "巧打!",
+  "撃破!",
 ] as const;
 
 export const STAR_DESTROYED_PRAISE_COPY = [
