@@ -61,6 +61,7 @@ type RankingEntry = { score: number; world: string; date: string };
 const STAR_PRAISE_DELAY_MS = 520;
 const WAVE_CLEAR_OVERLAY_DELAY_MS = 5400;
 const WORLD_CLEAR_OVERLAY_DELAY_MS = 7000;
+const MOBILE_BOTTOM_UI_SAFE_SPACE = 6.2;
 
 export function getRankingStorageKey(world: number) {
   return `bokuzushi_ranking_world_${world}`;
@@ -491,7 +492,7 @@ export class Game {
     const aspect = width / height;
     const baseAspect = GAME_WIDTH / GAME_HEIGHT;
     const fitWidth = aspect <= baseAspect;
-    const safeBottom = this.coarsePointer ? 4.0 : 2.2;
+    const safeBottom = this.coarsePointer ? MOBILE_BOTTOM_UI_SAFE_SPACE : 2.2;
     const safeTop = 0.8;
 
     let viewWidth: number;
