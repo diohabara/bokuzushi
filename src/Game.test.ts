@@ -16,7 +16,7 @@ describe("getBallDistanceSpeedMultiplier", () => {
       verticalVelocity: -0.12,
       world: 5,
       coarsePointer: false,
-    })).toBeCloseTo(0.72);
+    })).toBeCloseTo(0.66);
   });
 
   it("ワールドに関係なく同じ減衰カーブを使う", () => {
@@ -45,13 +45,13 @@ describe("getBallDistanceSpeedMultiplier", () => {
     })).toBeCloseTo(1);
   });
 
-  it("中距離では線形に速度が戻る", () => {
+  it("中距離でも近めなら減衰をしっかり維持する", () => {
     expect(getBallDistanceSpeedMultiplier({
       distanceRatio: 0.25,
       verticalVelocity: -0.12,
       world: 4,
       coarsePointer: false,
-    })).toBeCloseTo(0.79);
+    })).toBeCloseTo(0.713, 3);
   });
 
   it("モバイルでは近距離の減衰を強める", () => {
@@ -68,8 +68,8 @@ describe("getBallDistanceSpeedMultiplier", () => {
       coarsePointer: true,
     });
 
-    expect(desktop).toBeCloseTo(0.72);
-    expect(mobile).toBeCloseTo(0.62);
+    expect(desktop).toBeCloseTo(0.66);
+    expect(mobile).toBeCloseTo(0.54);
     expect(mobile).toBeLessThan(desktop);
   });
 });

@@ -79,8 +79,9 @@ export function getBallDistanceSpeedMultiplier(input: {
   }
 
   const clampedRatio = THREE.MathUtils.clamp(input.distanceRatio, 0, 1);
-  const nearPaddleMultiplier = input.coarsePointer ? 0.62 : 0.72;
-  return THREE.MathUtils.lerp(nearPaddleMultiplier, 1, clampedRatio);
+  const nearPaddleMultiplier = input.coarsePointer ? 0.54 : 0.66;
+  const easedRatio = THREE.MathUtils.smoothstep(clampedRatio, 0, 1);
+  return THREE.MathUtils.lerp(nearPaddleMultiplier, 1, easedRatio);
 }
 
 export class Game {
