@@ -371,17 +371,23 @@ function getSpecialBlockStats(
   }
 }
 
-function clampRow(row: number, rows: number) {
-  return Math.max(2, Math.min(rows - 3, row));
+function clampRow(row: number, rows: number, maxRow = rows - 3) {
+  return Math.max(2, Math.min(maxRow, row));
 }
 
 function clampCol(col: number, cols: number) {
   return Math.max(1, Math.min(cols - 2, col));
 }
 
-function clampCell(row: number, col: number, rows: number, cols: number): CellPosition {
+function clampCell(
+  row: number,
+  col: number,
+  rows: number,
+  cols: number,
+  maxRow = rows - 3
+): CellPosition {
   return {
-    row: clampRow(row, rows),
+    row: clampRow(row, rows, maxRow),
     col: clampCol(col, cols),
   };
 }
@@ -441,8 +447,7 @@ function getStrategicSpecialLayout(
   const lowerMidRow = clampRow(Math.max(starRow + 4, Math.floor(rows * 0.66)), rows);
   const frontRow = clampRow(Math.max(starRow + 6, Math.floor(rows * 0.76)), rows);
   const deepFrontRow = clampRow(Math.max(starRow + 8, Math.floor(rows * 0.84)), rows);
-  const extremeFrontRow = clampRow(rows - 3, rows);
-  const nearFrontRow = clampRow(rows - 5, rows);
+  const literalFrontRow = clampRow(rows - 1, rows, rows - 1);
   const upperGuardRow = clampRow(Math.min(starRow - 1, Math.floor(rows * 0.36)), rows);
   const sideBias = rng() < 0.5 ? -1 : 1;
   const oppositeBias = -sideBias;
@@ -548,10 +553,10 @@ function getStrategicSpecialLayout(
       const splitPocketRearAlt = clampCell(clampRow(lowerMidRow - 1, rows), starCol + sideBias * shoulderFar, rows, cols);
       const splitPocketFrontWide = clampCell(deepFrontRow, starCol + sideBias * shoulderWider, rows, cols);
       const splitPocketFrontAlt = clampCell(clampRow(frontRow + 1, rows), starCol + oppositeBias * shoulderFar, rows, cols);
-      const splitPocketNearFrontLeft = clampCell(nearFrontRow, starCol - shoulderWider, rows, cols);
-      const splitPocketNearFrontRight = clampCell(nearFrontRow, starCol + shoulderWider, rows, cols);
-      const splitPocketExtremeFrontLeft = clampCell(extremeFrontRow, starCol - shoulderNear, rows, cols);
-      const splitPocketExtremeFrontRight = clampCell(extremeFrontRow, starCol + shoulderNear, rows, cols);
+      const splitPocketNearFrontLeft = clampCell(literalFrontRow, starCol - shoulderWider, rows, cols, rows - 1);
+      const splitPocketNearFrontRight = clampCell(literalFrontRow, starCol + shoulderWider, rows, cols, rows - 1);
+      const splitPocketExtremeFrontLeft = clampCell(literalFrontRow, starCol - shoulderNear, rows, cols, rows - 1);
+      const splitPocketExtremeFrontRight = clampCell(literalFrontRow, starCol + shoulderNear, rows, cols, rows - 1);
       pushPlacement("split", splitPocketMain.row, splitPocketMain.col, 1, 0);
       pushPlacement("split", splitPocketAlt.row, splitPocketAlt.col, 1, 0);
       pushPlacement("split", splitPocketThird.row, splitPocketThird.col, 1, 0);
@@ -706,9 +711,10 @@ export class StarField {
       placement.pathHalfWidth,
       rng
     );
-    const showcasePlacements = strategicLayout.placements.filter(({ row, col }) => {
+    const showcasePlacements = strategicLayout.placements.filter(({ kind, row, col }) => {
+      const allowLiteralFrontSplit = worldIndex === 4 && kind === "split" && row === rows - 1;
       if (row === starRow && col === starCol) return false;
-      if (row >= rows - 2) return false;
+      if (row >= rows - 2 && !allowLiteralFrontSplit) return false;
       if (row > starRow && Math.abs(col - starCol) <= placement.pathHalfWidth) return false;
       return true;
     });
@@ -730,12 +736,23 @@ export class StarField {
       indestructibleMask[supportCell.row][supportCell.col] = true;
     }
 
-    const isEligibleSpecialCell = ({ row, col }: CellPosition) => {
-      if (!grid[row]?.[col]) return false;
-      if (indestructibleMask[row]?.[col]) return false;
+    const isAllowedSpecialCell = (
+      { row, col }: CellPosition,
+      kind: BlockKind = "normal"
+    ) => {
+      const allowLiteralFrontSplit = worldIndex === 4 && kind === "split" && row === rows - 1;
       if (row === starRow && col === starCol) return false;
-      if (row >= rows - 2) return false;
+      if (row >= rows - 2 && !allowLiteralFrontSplit) return false;
       if (row > starRow && Math.abs(col - starCol) <= placement.pathHalfWidth) return false;
+      return true;
+    };
+    const isEligibleSpecialCell = (
+      cell: CellPosition,
+      kind: BlockKind = "normal"
+    ) => {
+      if (!isAllowedSpecialCell(cell, kind)) return false;
+      if (!grid[cell.row]?.[cell.col]) return false;
+      if (indestructibleMask[cell.row]?.[cell.col]) return false;
       return true;
     };
     const scoreSpecialCell = (kind: BlockKind, cell: CellPosition) => {
@@ -760,14 +777,50 @@ export class StarField {
     const remainingByKind = new Map<BlockKind, number>(
       specialPlan.map((spawn) => [spawn.kind, spawn.count])
     );
+    const claimSpecialCell = (
+      cell: CellPosition,
+      kind: BlockKind,
+      force = false
+    ) => {
+      const remaining = remainingByKind.get(kind) ?? 0;
+      if (remaining <= 0) return false;
+      if (!(force ? isAllowedSpecialCell(cell, kind) : isEligibleSpecialCell(cell, kind))) {
+        return false;
+      }
+      const key = `${cell.row}:${cell.col}`;
+      if (specialKindsByCell.has(key)) return false;
+      if (force) {
+        grid[cell.row][cell.col] = true;
+        indestructibleMask[cell.row][cell.col] = false;
+      }
+      specialKindsByCell.set(key, kind);
+      remainingByKind.set(kind, remaining - 1);
+      return true;
+    };
+
+    if (worldIndex === 4) {
+      const frontSplitCols = [
+        starCol - (placement.pathHalfWidth + 4),
+        starCol + (placement.pathHalfWidth + 4),
+      ];
+      if (waveIndex >= 2) {
+        frontSplitCols.push(
+          starCol - (placement.pathHalfWidth + 2),
+          starCol + (placement.pathHalfWidth + 2),
+        );
+      }
+
+      for (const col of frontSplitCols) {
+        claimSpecialCell(
+          clampCell(rows - 1, col, rows, cols, rows - 1),
+          "split",
+          true
+        );
+      }
+    }
+
     for (const placementCell of showcasePlacements) {
-      const remaining = remainingByKind.get(placementCell.kind) ?? 0;
-      if (remaining <= 0) continue;
-      if (!isEligibleSpecialCell(placementCell)) continue;
-      const key = `${placementCell.row}:${placementCell.col}`;
-      if (specialKindsByCell.has(key)) continue;
-      specialKindsByCell.set(key, placementCell.kind);
-      remainingByKind.set(placementCell.kind, remaining - 1);
+      claimSpecialCell(placementCell, placementCell.kind, true);
     }
 
     const eligibleSpecialCells = shuffleInPlace(

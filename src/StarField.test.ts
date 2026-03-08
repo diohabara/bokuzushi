@@ -208,7 +208,17 @@ describe("StarField special generation", () => {
     expect(Math.max(...reflects.map((block) => block.row))).toBeLessThan(
       Math.min(...splits.map((block) => block.row))
     );
-    expect(Math.max(...splits.map((block) => block.row))).toBeGreaterThanOrEqual(theme.rows - 3);
+    expect(Math.max(...splits.map((block) => block.row))).toBe(theme.rows - 1);
+  });
+
+  it("5章の1巡目も増殖ブロックが最前列まで届く", () => {
+    const starField = new StarField(new THREE.Scene());
+    starField.generate(0, 4, { coarsePointer: false, paddleTop: PADDLE_Y + PADDLE_HEIGHT / 2 });
+    const theme = WORLD_THEMES[4]!;
+
+    const splits = starField.blocks.filter((block) => block.kind === "split");
+    expect(splits.length).toBeGreaterThanOrEqual(10);
+    expect(Math.max(...splits.map((block) => block.row))).toBe(theme.rows - 1);
   });
 
   it("5章は星の真下に直線で抜けられる穴を作らない", () => {
