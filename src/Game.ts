@@ -67,6 +67,26 @@ const MOBILE_BOTTOM_UI_SAFE_SPACE = 6.2;
 const SPLIT_BALL_ANGLE_OFFSET = 0.32;
 const INTERNAL_BALL_SAFETY_LIMIT = 12;
 const REFLECT_BLOCK_DAMAGE = 1;
+const DEBUG_UNLOCK_STORAGE_KEY = "bokuzushi_debug_unlock_all";
+
+function parseUnlockedWorld(rawValue: string | null | undefined) {
+  const parsed = Number.parseInt(rawValue ?? "1", 10);
+  if (!Number.isFinite(parsed)) return 1;
+  return THREE.MathUtils.clamp(parsed, 1, MAX_WORLDS);
+}
+
+export function isDebugUnlockAllEnabled(input: {
+  search?: string;
+  storageValue?: string | null;
+}) {
+  const params = new URLSearchParams(input.search ?? "");
+  const queryValue = params.get("unlockAll") ?? params.get("debugUnlockAll");
+  if (queryValue === "1" || queryValue === "true") {
+    return true;
+  }
+
+  return input.storageValue === "1" || input.storageValue === "true";
+}
 
 export function getRankingStorageKey(world: number) {
   return `bokuzushi_ranking_world_${world}`;
@@ -213,7 +233,13 @@ export class Game {
 
     this.coarsePointer = window.matchMedia("(pointer: coarse)").matches;
 
-    this.unlockedWorld = parseInt(localStorage.getItem("bokuzushi_unlocked") ?? "1", 10);
+    const debugUnlockAll = isDebugUnlockAllEnabled({
+      search: window.location.search,
+      storageValue: localStorage.getItem(DEBUG_UNLOCK_STORAGE_KEY),
+    });
+    this.unlockedWorld = debugUnlockAll
+      ? MAX_WORLDS
+      : parseUnlockedWorld(localStorage.getItem("bokuzushi_unlocked"));
     this.rankingWorld = this.unlockedWorld;
 
     this.pauseBtn.addEventListener("click", (event) => {

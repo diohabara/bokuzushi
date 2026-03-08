@@ -3,6 +3,7 @@ import {
   createSplitBallVelocities,
   getBallDistanceSpeedMultiplier,
   getRankingStorageKey,
+  isDebugUnlockAllEnabled,
 } from "./Game";
 
 describe("getBallDistanceSpeedMultiplier", () => {
@@ -83,6 +84,41 @@ describe("getRankingStorageKey", () => {
     expect(getRankingStorageKey(1)).toBe("bokuzushi_ranking_world_1");
     expect(getRankingStorageKey(5)).toBe("bokuzushi_ranking_world_5");
     expect(getRankingStorageKey(1)).not.toBe(getRankingStorageKey(2));
+  });
+});
+
+describe("isDebugUnlockAllEnabled", () => {
+  it("URL クエリで全銀河解放を有効化できる", () => {
+    expect(isDebugUnlockAllEnabled({
+      search: "?unlockAll=1",
+      storageValue: null,
+    })).toBe(true);
+    expect(isDebugUnlockAllEnabled({
+      search: "?debugUnlockAll=true",
+      storageValue: null,
+    })).toBe(true);
+  });
+
+  it("localStorage フラグでも全銀河解放を有効化できる", () => {
+    expect(isDebugUnlockAllEnabled({
+      search: "",
+      storageValue: "1",
+    })).toBe(true);
+    expect(isDebugUnlockAllEnabled({
+      search: "",
+      storageValue: "true",
+    })).toBe(true);
+  });
+
+  it("フラグがなければ通常進行のまま", () => {
+    expect(isDebugUnlockAllEnabled({
+      search: "?unlockAll=0",
+      storageValue: null,
+    })).toBe(false);
+    expect(isDebugUnlockAllEnabled({
+      search: "",
+      storageValue: "0",
+    })).toBe(false);
   });
 });
 
