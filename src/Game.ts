@@ -747,6 +747,10 @@ export class Game {
     title.textContent = "銀河別ハイスコア";
     el.appendChild(title);
 
+    const carousel = document.createElement("div");
+    carousel.className = "ranking-carousel";
+    el.appendChild(carousel);
+
     const visibleWorlds = getVisibleRankingWorlds(this.unlockedWorld, this.rankingWorld);
     for (const world of visibleWorlds) {
       const section = document.createElement("section");
@@ -787,7 +791,7 @@ export class Game {
         });
       }
 
-      el.appendChild(section);
+      carousel.appendChild(section);
     }
   }
 

@@ -694,9 +694,9 @@
         margin-top: 2px;
         padding-top: 10px;
         border-top: 1px solid rgba(255, 255, 255, 0.08);
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
       }
 
       #ranking-slot {
@@ -705,7 +705,6 @@
       }
 
       .ranking-title {
-        grid-column: 1 / -1;
         margin-bottom: 8px;
         font-family: var(--label-font);
         font-size: 12px;
@@ -715,11 +714,35 @@
         text-align: left;
       }
 
+      .ranking-carousel {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(260px, 78%);
+        gap: 14px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding-bottom: 6px;
+        overscroll-behavior-x: contain;
+        scroll-snap-type: x proximity;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+      }
+
+      .ranking-carousel::-webkit-scrollbar {
+        height: 8px;
+      }
+
+      .ranking-carousel::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.16);
+        border-radius: 999px;
+      }
+
       .ranking-section {
         padding: 10px 12px 12px;
         border: 1px solid rgba(255, 255, 255, 0.08);
         border-radius: 16px 8px 16px 8px;
         background: rgba(255, 255, 255, 0.025);
+        scroll-snap-align: start;
       }
 
       .ranking-section-title {
@@ -1380,7 +1403,7 @@
         .overlay-rail { padding: 18px 16px; }
         #world-select { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         #world-select .world-btn:last-child { grid-column: 1 / -1; }
-        #ranking { grid-template-columns: minmax(0, 1fr); }
+        .ranking-carousel { grid-auto-columns: minmax(0, 88%); }
         .star-praise-headline {
           width: min(92vw, 560px);
           font-size: clamp(52px, 18vw, 120px);
