@@ -33,6 +33,10 @@ type CellPosition = {
 type SpecialPlacement = CellPosition & {
   kind: BlockKind;
 };
+type StrategicSpecialLayout = {
+  placements: SpecialPlacement[];
+  supportIndestructibles: CellPosition[];
+};
 
 const LATE_WORLD_ROW_THRESHOLD = 28;
 const DEEP_WORLD_ROW_THRESHOLD = 32;
@@ -295,7 +299,7 @@ export function getSpecialBlockPlan(worldIndex: number, waveIndex: number): Spec
       return [];
     case 2:
       return [
-        { kind: "bomb", count: waveIndex >= 2 ? 6 : 4 },
+        { kind: "bomb", count: waveIndex >= 2 ? 12 : 8 },
       ];
     case 3:
       return [
@@ -375,64 +379,151 @@ function clampCol(col: number, cols: number) {
   return Math.max(1, Math.min(cols - 2, col));
 }
 
-function getSpecialShowcasePlacements(
+function clampCell(row: number, col: number, rows: number, cols: number): CellPosition {
+  return {
+    row: clampRow(row, rows),
+    col: clampCol(col, cols),
+  };
+}
+
+function getStrategicSpecialLayout(
   worldIndex: number,
-  _waveIndex: number,
+  waveIndex: number,
   rows: number,
   cols: number,
-  _starRow: number,
+  starRow: number,
   starCol: number,
   pathHalfWidth: number,
   rng: () => number
-): SpecialPlacement[] {
-  const jitterRow = (row: number) => clampRow(row + Math.floor(rng() * 3) - 1, rows);
-  const jitterCol = (col: number) => clampCol(col + Math.floor(rng() * 3) - 1, cols);
+): StrategicSpecialLayout {
+  const placements: SpecialPlacement[] = [];
+  const supportIndestructibles: CellPosition[] = [];
+  const jitterRow = (row: number, amount = 1) => clampRow(row + Math.floor(rng() * (amount * 2 + 1)) - amount, rows);
+  const jitterCol = (col: number, amount = 1) => clampCol(col + Math.floor(rng() * (amount * 2 + 1)) - amount, cols);
   const shoulderNear = pathHalfWidth + 2;
   const shoulderFar = pathHalfWidth + 3;
-  const upperRow = clampRow(Math.floor(rows * 0.28), rows);
-  const upperMidRow = clampRow(Math.floor(rows * 0.42), rows);
-  const midRow = clampRow(Math.floor(rows * 0.54), rows);
-  const lowerMidRow = clampRow(Math.floor(rows * 0.66), rows);
-  const lowRow = clampRow(Math.floor(rows * 0.76), rows);
+  const shoulderWider = pathHalfWidth + 4;
+  const midRow = clampRow(Math.max(starRow + 2, Math.floor(rows * 0.56)), rows);
+  const lowerMidRow = clampRow(Math.max(starRow + 4, Math.floor(rows * 0.66)), rows);
+  const frontRow = clampRow(Math.max(starRow + 6, Math.floor(rows * 0.76)), rows);
+  const deepFrontRow = clampRow(Math.max(starRow + 8, Math.floor(rows * 0.84)), rows);
+  const upperGuardRow = clampRow(Math.min(starRow - 1, Math.floor(rows * 0.36)), rows);
+  const sideBias = rng() < 0.5 ? -1 : 1;
+  const oppositeBias = -sideBias;
+  const pushPlacement = (kind: BlockKind, row: number, col: number, rowJitter = 1, colJitter = 1) => {
+    placements.push({
+      kind,
+      row: jitterRow(row, rowJitter),
+      col: jitterCol(col, colJitter),
+    });
+  };
+  const pushSupport = (row: number, col: number) => {
+    supportIndestructibles.push(clampCell(row, col, rows, cols));
+  };
 
   switch (worldIndex) {
     case 2:
-      return [
-        { kind: "bomb", row: jitterRow(upperRow), col: jitterCol(starCol - shoulderFar) },
-        { kind: "bomb", row: jitterRow(upperRow), col: jitterCol(starCol + shoulderFar) },
-        { kind: "bomb", row: jitterRow(upperMidRow), col: jitterCol(starCol - shoulderNear) },
-        { kind: "bomb", row: jitterRow(upperMidRow), col: jitterCol(starCol + shoulderNear) },
-        { kind: "bomb", row: jitterRow(midRow), col: jitterCol(starCol - shoulderFar) },
-        { kind: "bomb", row: jitterRow(midRow), col: jitterCol(starCol + shoulderFar) },
-      ];
+      for (const [row, offsetA, offsetB] of [
+        [lowerMidRow, shoulderNear, shoulderWider],
+        [frontRow, shoulderWider, shoulderNear],
+        [deepFrontRow, shoulderNear, shoulderWider],
+        [clampRow(frontRow + 1, rows), shoulderWider, shoulderNear],
+      ] as const) {
+        pushPlacement("bomb", row, starCol - offsetA);
+        pushPlacement("bomb", row, starCol + offsetB);
+      }
+      if (waveIndex >= 2) {
+        for (const [row, offsetA, offsetB] of [
+          [midRow, shoulderWider, shoulderNear],
+          [clampRow(deepFrontRow - 1, rows), shoulderNear, shoulderWider],
+        ] as const) {
+          pushPlacement("bomb", row, starCol - offsetA);
+          pushPlacement("bomb", row, starCol + offsetB);
+        }
+      }
+      break;
     case 3:
-      return [
-        { kind: "bomb", row: jitterRow(upperMidRow), col: jitterCol(starCol - shoulderFar) },
-        { kind: "bomb", row: jitterRow(upperMidRow), col: jitterCol(starCol + shoulderFar) },
-        { kind: "bomb", row: jitterRow(midRow), col: jitterCol(starCol - shoulderNear) },
-        { kind: "bomb", row: jitterRow(midRow), col: jitterCol(starCol + shoulderNear) },
-        { kind: "bomb", row: jitterRow(lowerMidRow), col: jitterCol(starCol + shoulderFar) },
-        { kind: "split", row: jitterRow(midRow + 1), col: jitterCol(starCol - shoulderNear) },
-        { kind: "split", row: jitterRow(midRow + 1), col: jitterCol(starCol + shoulderNear) },
-        { kind: "split", row: jitterRow(lowRow), col: jitterCol(starCol - shoulderFar) },
-        { kind: "split", row: jitterRow(lowRow), col: jitterCol(starCol + shoulderFar) },
-      ];
+      pushPlacement("bomb", midRow, starCol - shoulderWider);
+      pushPlacement("bomb", lowerMidRow, starCol + shoulderWider);
+      pushPlacement("bomb", frontRow, starCol - shoulderNear);
+      pushPlacement("bomb", frontRow, starCol + shoulderNear);
+
+      const splitPocketA = clampCell(frontRow, starCol + sideBias * shoulderWider, rows, cols);
+      const splitPocketB = clampCell(deepFrontRow, starCol + oppositeBias * shoulderWider, rows, cols);
+      pushPlacement("split", splitPocketA.row, splitPocketA.col, 1, 0);
+      pushPlacement("split", splitPocketB.row, splitPocketB.col, 1, 0);
+      if (waveIndex >= 2) {
+        const splitPocketC = clampCell(lowerMidRow, starCol + sideBias * shoulderFar, rows, cols);
+        const splitPocketD = clampCell(deepFrontRow, starCol + sideBias * shoulderNear, rows, cols);
+        pushPlacement("split", splitPocketC.row, splitPocketC.col, 1, 0);
+        pushPlacement("split", splitPocketD.row, splitPocketD.col, 1, 0);
+        pushPlacement("bomb", clampRow(frontRow - 1, rows), starCol - shoulderWider);
+      }
+
+      for (const pocket of [splitPocketA, splitPocketB]) {
+        pushSupport(pocket.row - 1, pocket.col);
+        pushSupport(pocket.row, pocket.col - 1);
+        pushSupport(pocket.row, pocket.col + 1);
+        pushSupport(pocket.row + 1, pocket.col + sideBias);
+      }
+      if (waveIndex >= 2) {
+        for (const pocket of [
+          clampCell(lowerMidRow, starCol + sideBias * shoulderFar, rows, cols),
+          clampCell(deepFrontRow, starCol + sideBias * shoulderNear, rows, cols),
+        ]) {
+          pushSupport(pocket.row - 1, pocket.col);
+          pushSupport(pocket.row, pocket.col - 1);
+          pushSupport(pocket.row, pocket.col + 1);
+        }
+      }
+      break;
     default:
-      return [
-        { kind: "reflect", row: jitterRow(upperMidRow), col: jitterCol(starCol - (pathHalfWidth + 1)) },
-        { kind: "reflect", row: jitterRow(upperMidRow), col: jitterCol(starCol + (pathHalfWidth + 1)) },
-        { kind: "reflect", row: jitterRow(midRow), col: jitterCol(starCol - (pathHalfWidth + 1)) },
-        { kind: "reflect", row: jitterRow(midRow), col: jitterCol(starCol + (pathHalfWidth + 1)) },
-        { kind: "reflect", row: jitterRow(lowerMidRow), col: jitterCol(starCol - shoulderNear) },
-        { kind: "reflect", row: jitterRow(lowerMidRow), col: jitterCol(starCol + shoulderNear) },
-        { kind: "bomb", row: jitterRow(midRow + 1), col: jitterCol(starCol - shoulderFar) },
-        { kind: "bomb", row: jitterRow(midRow + 1), col: jitterCol(starCol + shoulderFar) },
-        { kind: "bomb", row: jitterRow(lowRow), col: jitterCol(starCol + shoulderFar) },
-        { kind: "split", row: jitterRow(lowerMidRow + 1), col: jitterCol(starCol - shoulderNear) },
-        { kind: "split", row: jitterRow(lowerMidRow + 1), col: jitterCol(starCol + shoulderNear) },
-        { kind: "split", row: jitterRow(lowRow), col: jitterCol(starCol - shoulderFar) },
-      ];
+      for (const [row, offset] of [
+        [upperGuardRow, pathHalfWidth + 1],
+        [starRow, shoulderNear],
+        [clampRow(starRow + 2, rows), pathHalfWidth + 1],
+      ] as const) {
+        pushPlacement("reflect", row, starCol - offset, 0, 0);
+        pushPlacement("reflect", row, starCol + offset, 0, 0);
+      }
+
+      pushPlacement("bomb", lowerMidRow, starCol - shoulderWider);
+      pushPlacement("bomb", frontRow, starCol + shoulderWider);
+      pushPlacement("bomb", deepFrontRow, starCol - shoulderNear);
+      if (waveIndex >= 2) {
+        pushPlacement("bomb", frontRow, starCol + shoulderNear);
+      }
+
+      const splitPocketMain = clampCell(frontRow, starCol + sideBias * shoulderWider, rows, cols);
+      const splitPocketAlt = clampCell(deepFrontRow, starCol + oppositeBias * shoulderFar, rows, cols);
+      pushPlacement("split", splitPocketMain.row, splitPocketMain.col, 1, 0);
+      pushPlacement("split", splitPocketAlt.row, splitPocketAlt.col, 1, 0);
+      if (waveIndex >= 2) {
+        const splitPocketThird = clampCell(frontRow - 1, starCol + sideBias * shoulderNear, rows, cols);
+        pushPlacement("split", splitPocketThird.row, splitPocketThird.col, 1, 0);
+      }
+
+      for (const pocket of [splitPocketMain, splitPocketAlt]) {
+        pushSupport(pocket.row - 1, pocket.col);
+        pushSupport(pocket.row, pocket.col - 1);
+        pushSupport(pocket.row, pocket.col + 1);
+        pushSupport(pocket.row - 1, pocket.col + sideBias);
+      }
+      for (const guard of [
+        clampCell(starRow - 1, starCol - shoulderNear, rows, cols),
+        clampCell(starRow - 1, starCol + shoulderNear, rows, cols),
+        clampCell(starRow + 1, starCol - shoulderNear, rows, cols),
+        clampCell(starRow + 1, starCol + shoulderNear, rows, cols),
+      ]) {
+        pushSupport(guard.row, guard.col);
+      }
+      break;
   }
+
+  return {
+    placements,
+    supportIndestructibles,
+  };
 }
 
 export class StarField {
@@ -505,7 +596,7 @@ export class StarField {
       }
     }
 
-    const showcasePlacements = getSpecialShowcasePlacements(
+    const strategicLayout = getStrategicSpecialLayout(
       worldIndex,
       waveIndex,
       rows,
@@ -514,16 +605,29 @@ export class StarField {
       starCol,
       placement.pathHalfWidth,
       rng
-    ).filter(({ row, col }) => {
+    );
+    const showcasePlacements = strategicLayout.placements.filter(({ row, col }) => {
       if (row === starRow && col === starCol) return false;
       if (row >= rows - 2) return false;
       if (row > starRow && Math.abs(col - starCol) <= placement.pathHalfWidth) return false;
+      return true;
+    });
+    const placementKeys = new Set(showcasePlacements.map(({ row, col }) => `${row}:${col}`));
+    const strategicSupports = strategicLayout.supportIndestructibles.filter(({ row, col }) => {
+      if (row === starRow && col === starCol) return false;
+      if (row >= rows - 2) return false;
+      if (row > starRow && Math.abs(col - starCol) <= placement.pathHalfWidth) return false;
+      if (placementKeys.has(`${row}:${col}`)) return false;
       return true;
     });
 
     for (const placementCell of showcasePlacements) {
       grid[placementCell.row][placementCell.col] = true;
       indestructibleMask[placementCell.row][placementCell.col] = false;
+    }
+    for (const supportCell of strategicSupports) {
+      grid[supportCell.row][supportCell.col] = true;
+      indestructibleMask[supportCell.row][supportCell.col] = true;
     }
 
     const isEligibleSpecialCell = ({ row, col }: CellPosition) => {
@@ -533,6 +637,22 @@ export class StarField {
       if (row >= rows - 2) return false;
       if (row > starRow && Math.abs(col - starCol) <= placement.pathHalfWidth) return false;
       return true;
+    };
+    const scoreSpecialCell = (kind: BlockKind, cell: CellPosition) => {
+      const rowRatio = cell.row / Math.max(rows - 1, 1);
+      const lateralDistance = Math.abs(cell.col - starCol);
+      const rowDistance = cell.row - starRow;
+      const starDistance = Math.abs(cell.row - starRow) + lateralDistance;
+      if (kind === "bomb") {
+        return rowRatio * 12 + lateralDistance * 2.4 + Math.max(0, rowDistance) * 0.8;
+      }
+      if (kind === "split") {
+        return rowRatio * 14 + lateralDistance * 3.2 + Math.max(0, rowDistance) * 1.1;
+      }
+      if (kind === "reflect") {
+        return (4 - Math.abs(rowDistance)) * 1.6 + (3 - Math.abs(lateralDistance - (placement.pathHalfWidth + 1))) * 2.1 - starDistance * 0.2;
+      }
+      return rowRatio + lateralDistance * 0.1;
     };
 
     const specialKindsByCell = new Map<string, BlockKind>();
@@ -556,14 +676,21 @@ export class StarField {
       )
     , rng).filter((cell) => isEligibleSpecialCell(cell) && !specialKindsByCell.has(`${cell.row}:${cell.col}`));
 
-    let specialCursor = 0;
     for (const spawn of specialPlan) {
       let remaining = remainingByKind.get(spawn.kind) ?? 0;
+      const candidates = [...eligibleSpecialCells]
+        .filter((cell) => !specialKindsByCell.has(`${cell.row}:${cell.col}`))
+        .sort((left, right) => {
+          const scoreDiff = scoreSpecialCell(spawn.kind, right) - scoreSpecialCell(spawn.kind, left);
+          if (Math.abs(scoreDiff) > 0.0001) return scoreDiff;
+          return rng() - 0.5;
+        });
+      let candidateIndex = 0;
       while (remaining > 0) {
-        const cell = eligibleSpecialCells[specialCursor];
+        const cell = candidates[candidateIndex];
         if (!cell) break;
         specialKindsByCell.set(`${cell.row}:${cell.col}`, spawn.kind);
-        specialCursor += 1;
+        candidateIndex += 1;
         remaining -= 1;
       }
       remainingByKind.set(spawn.kind, remaining);

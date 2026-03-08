@@ -145,7 +145,7 @@ describe("getSpecialBlockPlan", () => {
 
   it("3章で爆弾を解禁する", () => {
     expect(getSpecialBlockPlan(2, 1)).toEqual([
-      { kind: "bomb", count: 4 },
+      { kind: "bomb", count: 8 },
     ]);
   });
 
@@ -171,7 +171,8 @@ describe("StarField special generation", () => {
     starField.generate(0, 2, { coarsePointer: false, paddleTop: PADDLE_Y + PADDLE_HEIGHT / 2 });
 
     const bombs = starField.blocks.filter((block) => block.kind === "bomb");
-    expect(bombs.length).toBeGreaterThanOrEqual(4);
+    expect(bombs.length).toBeGreaterThanOrEqual(8);
+    expect(Math.min(...bombs.map((block) => block.row))).toBeGreaterThanOrEqual(15);
   });
 
   it("4章は爆弾と増殖が両方とも複数見える", () => {
@@ -182,6 +183,11 @@ describe("StarField special generation", () => {
     const splits = starField.blocks.filter((block) => block.kind === "split");
     expect(bombs.length).toBeGreaterThanOrEqual(5);
     expect(splits.length).toBeGreaterThanOrEqual(4);
+    expect(
+      splits.reduce((sum, block) => sum + block.row, 0) / splits.length
+    ).toBeGreaterThan(
+      bombs.reduce((sum, block) => sum + block.row, 0) / bombs.length
+    );
   });
 
   it("5章は反射ブロックが目立つ数だけ出る", () => {
@@ -189,7 +195,13 @@ describe("StarField special generation", () => {
     starField.generate(2, 4, { coarsePointer: false, paddleTop: PADDLE_Y + PADDLE_HEIGHT / 2 });
 
     const reflects = starField.blocks.filter((block) => block.kind === "reflect");
+    const splits = starField.blocks.filter((block) => block.kind === "split");
     expect(reflects.length).toBeGreaterThanOrEqual(6);
+    expect(
+      reflects.reduce((sum, block) => sum + block.row, 0) / reflects.length
+    ).toBeLessThan(
+      splits.reduce((sum, block) => sum + block.row, 0) / splits.length
+    );
   });
 
   it("同じ銀河と巡目なら特殊ブロック配置は seed 固定で再現される", () => {
