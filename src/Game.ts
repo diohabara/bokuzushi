@@ -96,6 +96,13 @@ export function getRankingStorageKey(world: number) {
   return `bokuzushi_ranking_world_${world}`;
 }
 
+export function getVisibleRankingWorlds(unlockedWorld: number, preferredWorld: number) {
+  const clampedUnlocked = THREE.MathUtils.clamp(unlockedWorld, 1, MAX_WORLDS);
+  const clampedPreferred = THREE.MathUtils.clamp(preferredWorld, 1, clampedUnlocked);
+  const worlds = Array.from({ length: clampedUnlocked }, (_, index) => index + 1);
+  return [clampedPreferred, ...worlds.filter((world) => world !== clampedPreferred)];
+}
+
 export function getBallDistanceSpeedMultiplier(input: {
   distanceRatio: number;
   verticalVelocity: number;
@@ -735,35 +742,53 @@ export class Game {
     el.style.display = "block";
     el.textContent = "";
 
-    const ranking = this.getRanking();
-    if (ranking.length === 0) return;
-
     const title = document.createElement("div");
     title.className = "ranking-title";
-    title.textContent = `${WORLD_THEMES[this.rankingWorld - 1]?.name ?? "銀河"} ハイスコア`;
+    title.textContent = "銀河別ハイスコア";
     el.appendChild(title);
 
-    ranking.forEach((entry, index) => {
-      const row = document.createElement("div");
-      row.className = "ranking-row";
+    const visibleWorlds = getVisibleRankingWorlds(this.unlockedWorld, this.rankingWorld);
+    for (const world of visibleWorlds) {
+      const section = document.createElement("section");
+      section.className = "ranking-section";
 
-      const rank = document.createElement("span");
-      rank.className = "ranking-rank";
-      rank.textContent = `${index + 1}.`;
+      const sectionTitle = document.createElement("div");
+      sectionTitle.className = "ranking-section-title";
+      sectionTitle.textContent = `${WORLD_THEMES[world - 1]?.name ?? "銀河"} の記録`;
+      section.appendChild(sectionTitle);
 
-      const score = document.createElement("span");
-      score.className = "ranking-score";
-      score.textContent = String(entry.score);
+      const ranking = this.getRanking(world);
+      if (ranking.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "ranking-empty";
+        empty.textContent = "未記録";
+        section.appendChild(empty);
+      } else {
+        ranking.forEach((entry, index) => {
+          const row = document.createElement("div");
+          row.className = "ranking-row";
 
-      const world = document.createElement("span");
-      world.className = "ranking-world";
-      world.textContent = entry.date;
+          const rank = document.createElement("span");
+          rank.className = "ranking-rank";
+          rank.textContent = `${index + 1}.`;
 
-      row.appendChild(rank);
-      row.appendChild(score);
-      row.appendChild(world);
-      el!.appendChild(row);
-    });
+          const score = document.createElement("span");
+          score.className = "ranking-score";
+          score.textContent = String(entry.score);
+
+          const worldLabel = document.createElement("span");
+          worldLabel.className = "ranking-world";
+          worldLabel.textContent = entry.date;
+
+          row.appendChild(rank);
+          row.appendChild(score);
+          row.appendChild(worldLabel);
+          section.appendChild(row);
+        });
+      }
+
+      el.appendChild(section);
+    }
   }
 
   private resetRoundMomentum() {
@@ -1506,8 +1531,8 @@ export class Game {
     localStorage.setItem(getRankingStorageKey(this.world), JSON.stringify(top10));
   }
 
-  private getRanking(): RankingEntry[] {
-    const raw = localStorage.getItem(getRankingStorageKey(this.rankingWorld));
+  private getRanking(world = this.rankingWorld): RankingEntry[] {
+    const raw = localStorage.getItem(getRankingStorageKey(world));
     return raw ? JSON.parse(raw) : [];
   }
 

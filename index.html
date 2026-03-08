@@ -694,6 +694,9 @@
         margin-top: 2px;
         padding-top: 10px;
         border-top: 1px solid rgba(255, 255, 255, 0.08);
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px 14px;
       }
 
       #ranking-slot {
@@ -702,12 +705,30 @@
       }
 
       .ranking-title {
+        grid-column: 1 / -1;
         margin-bottom: 8px;
         font-family: var(--label-font);
         font-size: 12px;
         font-weight: 900;
         letter-spacing: 4px;
         opacity: 0.62;
+        text-align: left;
+      }
+
+      .ranking-section {
+        padding: 10px 12px 12px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px 8px 16px 8px;
+        background: rgba(255, 255, 255, 0.025);
+      }
+
+      .ranking-section-title {
+        margin-bottom: 6px;
+        font-family: var(--label-font);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 2px;
+        opacity: 0.7;
         text-align: left;
       }
 
@@ -723,6 +744,7 @@
       .ranking-rank { width: 24px; text-align: right; opacity: 0.5; }
       .ranking-score { min-width: 60px; font-weight: 900; color: var(--gold); }
       .ranking-world { opacity: 0.64; }
+      .ranking-empty { font-size: 12px; line-height: 1.8; opacity: 0.46; }
 
       #flash,
       #rainbow-border,
@@ -1358,6 +1380,7 @@
         .overlay-rail { padding: 18px 16px; }
         #world-select { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         #world-select .world-btn:last-child { grid-column: 1 / -1; }
+        #ranking { grid-template-columns: minmax(0, 1fr); }
         .star-praise-headline {
           width: min(92vw, 560px);
           font-size: clamp(52px, 18vw, 120px);

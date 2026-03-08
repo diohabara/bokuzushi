@@ -4,6 +4,7 @@ import {
   getExtendedPaddleMultiplier,
   getBallDistanceSpeedMultiplier,
   getRankingStorageKey,
+  getVisibleRankingWorlds,
   isDebugUnlockAllEnabled,
 } from "./Game";
 
@@ -85,6 +86,16 @@ describe("getRankingStorageKey", () => {
     expect(getRankingStorageKey(1)).toBe("bokuzushi_ranking_world_1");
     expect(getRankingStorageKey(5)).toBe("bokuzushi_ranking_world_5");
     expect(getRankingStorageKey(1)).not.toBe(getRankingStorageKey(2));
+  });
+});
+
+describe("getVisibleRankingWorlds", () => {
+  it("選択中の銀河を先頭にしつつ解放済み銀河を全部返す", () => {
+    expect(getVisibleRankingWorlds(5, 3)).toEqual([3, 1, 2, 4, 5]);
+  });
+
+  it("未解放の銀河は並びに含めない", () => {
+    expect(getVisibleRankingWorlds(2, 5)).toEqual([2, 1]);
   });
 });
 
