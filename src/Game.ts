@@ -67,7 +67,6 @@ const SPLIT_BALL_ANGLE_OFFSET = 0.32;
 const INTERNAL_BALL_SAFETY_LIMIT = 12;
 const REFLECT_BLOCK_DAMAGE = 1;
 const DEBUG_UNLOCK_STORAGE_KEY = "bokuzushi_debug_unlock_all";
-const PADDLE_EXTEND_DURATION_SEC = 16;
 const PADDLE_EXTEND_STEP = 0.22;
 const PADDLE_EXTEND_MAX_MULTIPLIER = 1.88;
 
@@ -196,7 +195,6 @@ export class Game {
   private renderPixelRatio = 1;
   private ballSparkTimer = 0;
   private ballSparkCooldown = 0;
-  private paddleExtendTimer = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -338,12 +336,10 @@ export class Game {
   }
 
   private resetPaddleBoost() {
-    this.paddleExtendTimer = 0;
     this.paddle.setWidthMultiplier(1);
   }
 
   private extendPaddle() {
-    this.paddleExtendTimer = PADDLE_EXTEND_DURATION_SEC;
     this.paddle.setWidthMultiplier(getExtendedPaddleMultiplier(this.paddle.widthScale));
     this.flashScreen("rgba(255,205,120,0.42)", 120, 0.22);
     this.shake(0.14, 0.14);
@@ -911,7 +907,6 @@ export class Game {
     this.reachStage = 0;
     this.feverReadyShown = false;
     this.resetRoundMomentum();
-    this.resetPaddleBoost();
     const nextSpeed = Math.min(this.getPrimaryBall().speed + this.getWaveSpeedIncrement(), this.getMaxSpeed());
     this.resetBalls(nextSpeed);
     this.starField.generate(this.wave - 1, this.world - 1, {
@@ -939,7 +934,6 @@ export class Game {
     this.feverReadyShown = false;
     this.progression = createProgressionState();
     this.resetRoundMomentum();
-    this.resetPaddleBoost();
     this.syncBallTier();
     this.resetBalls(this.getBaseSpeed());
     this.starField.generate(0, this.world - 1, {
@@ -1556,13 +1550,6 @@ export class Game {
     }
 
     this.progression = tickTimers(this.progression, dt);
-
-    if (this.paddleExtendTimer > 0) {
-      this.paddleExtendTimer -= dt;
-      if (this.paddleExtendTimer <= 0) {
-        this.resetPaddleBoost();
-      }
-    }
 
     if (this.rainbowTimer > 0) {
       this.rainbowTimer -= dt;
