@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { Block } from "./Block";
+import { Block, type BlockKind } from "./Block";
 import { Star } from "./Star";
 import {
   BLOCK_HEIGHT,
@@ -21,6 +21,10 @@ type PatternFn = (cols: number, rows: number) => boolean[][];
 type StarFieldGenerateOptions = {
   coarsePointer?: boolean;
   paddleTop?: number;
+};
+type SpecialBlockSpawn = {
+  kind: BlockKind;
+  count: number;
 };
 
 const LATE_WORLD_ROW_THRESHOLD = 28;
@@ -275,6 +279,67 @@ export function getFrontRowDurabilityProfile(rows: number, row: number, stagePro
   };
 }
 
+export function getSpecialBlockPlan(worldIndex: number, waveIndex: number): SpecialBlockSpawn[] {
+  switch (worldIndex) {
+    case 0:
+    case 1:
+      return [];
+    case 2:
+      return [
+        { kind: "bomb", count: waveIndex >= 2 ? 3 : 2 },
+      ];
+    case 3:
+      return [
+        { kind: "bomb", count: waveIndex >= 2 ? 3 : 2 },
+        { kind: "split", count: waveIndex >= 2 ? 2 : 1 },
+      ];
+    default:
+      return [
+        { kind: "bomb", count: waveIndex >= 2 ? 2 : 1 },
+        { kind: "split", count: 1 },
+        { kind: "reflect", count: waveIndex >= 2 ? 2 : 1 },
+      ];
+  }
+}
+
+function shuffleInPlace<T>(items: T[]) {
+  for (let index = items.length - 1; index > 0; index--) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [items[index], items[swapIndex]] = [items[swapIndex], items[index]];
+  }
+  return items;
+}
+
+function getSpecialBlockStats(
+  kind: BlockKind,
+  baseColorIndex: number,
+  maxTier: number,
+  baseHp: number
+) {
+  switch (kind) {
+    case "bomb":
+      return {
+        colorIndex: Math.max(0, Math.min(maxTier, baseColorIndex - 1)),
+        hp: Math.max(1, Math.ceil(baseHp * 0.8)),
+      };
+    case "split":
+      return {
+        colorIndex: Math.max(0, Math.min(maxTier, baseColorIndex - 1)),
+        hp: 1,
+      };
+    case "reflect":
+      return {
+        colorIndex: Math.max(1, Math.min(maxTier, baseColorIndex + 1)),
+        hp: 2,
+      };
+    default:
+      return {
+        colorIndex: baseColorIndex,
+        hp: baseHp,
+      };
+  }
+}
+
 export class StarField {
   blocks: Block[] = [];
   star: Star | null = null;
@@ -344,6 +409,30 @@ export class StarField {
       }
     }
 
+    const specialKindsByCell = new Map<string, BlockKind>();
+    const eligibleSpecialCells = shuffleInPlace(
+      Array.from({ length: rows }, (_, row) => row).flatMap((row) =>
+        Array.from({ length: cols }, (_, col) => ({ row, col }))
+      )
+    ).filter(({ row, col }) => {
+      if (!grid[row]?.[col]) return false;
+      if (indestructibleMask[row]?.[col]) return false;
+      if (row === starRow && col === starCol) return false;
+      if (row >= rows - 2) return false;
+      if (row > starRow && Math.abs(col - starCol) <= placement.pathHalfWidth) return false;
+      return true;
+    });
+
+    let specialCursor = 0;
+    for (const spawn of getSpecialBlockPlan(worldIndex, waveIndex)) {
+      for (let index = 0; index < spawn.count; index++) {
+        const cell = eligibleSpecialCells[specialCursor];
+        if (!cell) break;
+        specialKindsByCell.set(`${cell.row}:${cell.col}`, spawn.kind);
+        specialCursor += 1;
+      }
+    }
+
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
         if (!grid[row][col] && !indestructibleMask[row][col]) continue;
@@ -362,7 +451,7 @@ export class StarField {
         if (indestructibleMask[row][col]) {
           // Indestructible block
           const block = new Block(
-            x, y, INDESTRUCTIBLE_COLOR, INDESTRUCTIBLE_COLOR_INDEX, 20, row
+            x, y, INDESTRUCTIBLE_COLOR, INDESTRUCTIBLE_COLOR_INDEX, 20, row, col, "indestructible"
           );
           this.blocks.push(block);
           this.scene.add(block.mesh);
@@ -380,15 +469,39 @@ export class StarField {
           const appliedBoost = inGuardZone
             ? Math.max(0, placement.guardTierBoost - Math.max(0, starDistance - 1))
             : 0;
-          const colorIndex = Math.min(softenedBaseColorIndex + appliedBoost, maxTier);
-          const color = BLOCK_COLORS[colorIndex];
-          const baseTierHp = baseHp * (1 + colorIndex);
+          const boostedColorIndex = Math.min(softenedBaseColorIndex + appliedBoost, maxTier);
+          const baseTierHp = baseHp * (1 + boostedColorIndex);
           const guardHp = inGuardZone
             ? Math.ceil(baseTierHp * placement.guardHpMultiplier)
             : baseTierHp;
-          const block = new Block(x, y, color, colorIndex, guardHp, row);
+          const specialKind = specialKindsByCell.get(`${row}:${col}`) ?? "normal";
+          const specialStats = getSpecialBlockStats(
+            specialKind,
+            boostedColorIndex,
+            maxTier,
+            guardHp
+          );
+          const color = specialKind === "normal"
+            ? BLOCK_COLORS[specialStats.colorIndex]
+            : specialKind === "bomb"
+              ? 0xff6a3d
+              : specialKind === "split"
+                ? 0x57ffe5
+                : 0xb8e7ff;
+          const block = new Block(
+            x,
+            y,
+            color,
+            specialStats.colorIndex,
+            specialStats.hp,
+            row,
+            col,
+            specialKind
+          );
           this.blocks.push(block);
           this.scene.add(block.mesh);
+          const glow = block.getEdgeGlow();
+          if (glow) this.scene.add(glow);
         }
       }
     }

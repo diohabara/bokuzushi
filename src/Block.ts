@@ -4,25 +4,43 @@ import {
   INDESTRUCTIBLE_COLOR, INDESTRUCTIBLE_EMISSIVE, INDESTRUCTIBLE_COLOR_INDEX,
 } from "./constants";
 
+export type BlockKind = "normal" | "indestructible" | "bomb" | "split" | "reflect";
+
 export class Block {
   mesh: THREE.Mesh;
   alive = true;
   hp: number;
   maxHp: number;
   row: number;
+  col: number;
   colorIndex: number;
+  kind: BlockKind;
   indestructible: boolean;
   private pulsePhase = Math.random() * Math.PI * 2;
   private edgeGlow: THREE.LineSegments | null = null;
   private hpBarBg: THREE.Mesh | null = null;
   private hpBarFg: THREE.Mesh | null = null;
+  private baseColor: THREE.Color;
+  private baseEmissive: THREE.Color;
+  private baseEmissiveIntensity: number;
 
-  constructor(x: number, y: number, color: number, colorIndex: number, hp: number, row: number) {
+  constructor(
+    x: number,
+    y: number,
+    color: number,
+    colorIndex: number,
+    hp: number,
+    row: number,
+    col: number,
+    kind: BlockKind = "normal"
+  ) {
     this.hp = hp;
     this.maxHp = hp;
     this.row = row;
+    this.col = col;
     this.colorIndex = colorIndex;
-    this.indestructible = colorIndex === INDESTRUCTIBLE_COLOR_INDEX;
+    this.kind = kind;
+    this.indestructible = kind === "indestructible" || colorIndex === INDESTRUCTIBLE_COLOR_INDEX;
 
     const geo = new THREE.BoxGeometry(BLOCK_WIDTH, BLOCK_HEIGHT, BLOCK_DEPTH, 2, 2, 1);
 
@@ -43,6 +61,50 @@ export class Block {
       });
       this.edgeGlow = new THREE.LineSegments(edgeGeo, edgeMat);
       this.edgeGlow.position.set(x, y, 0.01);
+      this.baseColor = new THREE.Color(INDESTRUCTIBLE_COLOR);
+      this.baseEmissive = new THREE.Color(INDESTRUCTIBLE_EMISSIVE);
+      this.baseEmissiveIntensity = 0.8;
+    } else if (this.kind === "bomb") {
+      mat = new THREE.MeshStandardMaterial({
+        color: 0xff6a3d,
+        emissive: 0xff3a18,
+        emissiveIntensity: 0.75,
+        metalness: 0.3,
+        roughness: 0.25,
+      });
+      this.baseColor = new THREE.Color(0xff6a3d);
+      this.baseEmissive = new THREE.Color(0xff3a18);
+      this.baseEmissiveIntensity = 0.75;
+    } else if (this.kind === "split") {
+      mat = new THREE.MeshStandardMaterial({
+        color: 0x57ffe5,
+        emissive: 0x00d5d5,
+        emissiveIntensity: 0.68,
+        metalness: 0.2,
+        roughness: 0.2,
+      });
+      this.baseColor = new THREE.Color(0x57ffe5);
+      this.baseEmissive = new THREE.Color(0x00d5d5);
+      this.baseEmissiveIntensity = 0.68;
+    } else if (this.kind === "reflect") {
+      mat = new THREE.MeshStandardMaterial({
+        color: 0xb8e7ff,
+        emissive: 0x8fd3ff,
+        emissiveIntensity: 0.62,
+        metalness: 0.95,
+        roughness: 0.08,
+      });
+      const edgeGeo = new THREE.EdgesGeometry(geo);
+      const edgeMat = new THREE.LineBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.85,
+      });
+      this.edgeGlow = new THREE.LineSegments(edgeGeo, edgeMat);
+      this.edgeGlow.position.set(x, y, 0.01);
+      this.baseColor = new THREE.Color(0xb8e7ff);
+      this.baseEmissive = new THREE.Color(0x8fd3ff);
+      this.baseEmissiveIntensity = 0.62;
     } else {
       mat = new THREE.MeshStandardMaterial({
         color,
@@ -51,6 +113,9 @@ export class Block {
         metalness: 0.4,
         roughness: 0.4,
       });
+      this.baseColor = new THREE.Color(color);
+      this.baseEmissive = new THREE.Color(color);
+      this.baseEmissiveIntensity = 0.3;
     }
 
     this.mesh = new THREE.Mesh(geo, mat);
@@ -96,19 +161,52 @@ export class Block {
   }
 
   updatePulse(time: number) {
-    if (!this.indestructible || !this.alive) return;
+    if (!this.alive) return;
+    const mat = this.mesh.material as THREE.MeshStandardMaterial;
+
     const hue = ((time * 0.4 + this.pulsePhase / (Math.PI * 2)) % 1);
     const pulse = 0.5 + 0.5 * Math.sin(time * 3.0 + this.pulsePhase);
-    const mat = this.mesh.material as THREE.MeshStandardMaterial;
-    const rainbowColor = new THREE.Color().setHSL(hue, 1.0, 0.5);
-    mat.color.copy(rainbowColor);
-    mat.emissive.copy(rainbowColor);
-    mat.emissiveIntensity = 0.5 + pulse * 0.5;
-    if (this.edgeGlow) {
-      const edgeColor = new THREE.Color().setHSL((hue + 0.5) % 1, 1.0, 0.7);
-      const edgeMat = this.edgeGlow.material as THREE.LineBasicMaterial;
-      edgeMat.color.copy(edgeColor);
-      edgeMat.opacity = 0.6 + pulse * 0.4;
+
+    if (this.indestructible) {
+      const rainbowColor = new THREE.Color().setHSL(hue, 1.0, 0.5);
+      mat.color.copy(rainbowColor);
+      mat.emissive.copy(rainbowColor);
+      mat.emissiveIntensity = 0.5 + pulse * 0.5;
+      if (this.edgeGlow) {
+        const edgeColor = new THREE.Color().setHSL((hue + 0.5) % 1, 1.0, 0.7);
+        const edgeMat = this.edgeGlow.material as THREE.LineBasicMaterial;
+        edgeMat.color.copy(edgeColor);
+        edgeMat.opacity = 0.6 + pulse * 0.4;
+      }
+      return;
+    }
+
+    if (this.kind === "bomb") {
+      mat.color.copy(this.baseColor).offsetHSL(0, 0, pulse * 0.08);
+      mat.emissive.copy(this.baseEmissive);
+      mat.emissiveIntensity = this.baseEmissiveIntensity + pulse * 0.35;
+      return;
+    }
+
+    if (this.kind === "split") {
+      const splitColor = new THREE.Color().setHSL(0.46 + pulse * 0.06, 1, 0.62);
+      mat.color.copy(splitColor);
+      mat.emissive.copy(splitColor);
+      mat.emissiveIntensity = this.baseEmissiveIntensity + pulse * 0.28;
+      return;
+    }
+
+    if (this.kind === "reflect") {
+      const shimmer = 0.84 + pulse * 0.16;
+      mat.color.copy(this.baseColor).multiplyScalar(shimmer);
+      mat.emissive.copy(this.baseEmissive);
+      mat.emissiveIntensity = this.baseEmissiveIntensity + pulse * 0.24;
+      if (this.edgeGlow) {
+        const edgeMat = this.edgeGlow.material as THREE.LineBasicMaterial;
+        edgeMat.color.setHSL(0.55, 0.85, 0.7 + pulse * 0.1);
+        edgeMat.opacity = 0.55 + pulse * 0.35;
+      }
+      return;
     }
   }
 
@@ -129,7 +227,7 @@ export class Block {
     this.mesh.scale.setScalar(1.3);
     setTimeout(() => {
       if (this.alive) {
-        mat.emissiveIntensity = 0.3;
+        mat.emissiveIntensity = this.baseEmissiveIntensity;
         this.mesh.scale.setScalar(originalScale);
       }
     }, 100);

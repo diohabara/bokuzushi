@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { getBallDistanceSpeedMultiplier, getRankingStorageKey } from "./Game";
+import {
+  createSplitBallVelocities,
+  getBallDistanceSpeedMultiplier,
+  getRankingStorageKey,
+} from "./Game";
 
 describe("getBallDistanceSpeedMultiplier", () => {
   it("上昇中は減衰しない", () => {
@@ -79,5 +83,21 @@ describe("getRankingStorageKey", () => {
     expect(getRankingStorageKey(1)).toBe("bokuzushi_ranking_world_1");
     expect(getRankingStorageKey(5)).toBe("bokuzushi_ranking_world_5");
     expect(getRankingStorageKey(1)).not.toBe(getRankingStorageKey(2));
+  });
+});
+
+describe("createSplitBallVelocities", () => {
+  it("増殖球は元の速度を保ったまま2方向に分かれる", () => {
+    const velocities = createSplitBallVelocities({
+      vx: 0,
+      vy: 0.2,
+      speed: 0.2,
+    });
+
+    expect(velocities).toHaveLength(2);
+    expect(Math.hypot(velocities[0]!.vx, velocities[0]!.vy)).toBeCloseTo(0.2);
+    expect(Math.hypot(velocities[1]!.vx, velocities[1]!.vy)).toBeCloseTo(0.2);
+    expect(velocities[0]!.vx).toBeCloseTo(-velocities[1]!.vx, 6);
+    expect(velocities[0]!.vy).toBeCloseTo(velocities[1]!.vy, 6);
   });
 });

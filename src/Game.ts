@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { Paddle } from "./Paddle";
 import { Ball } from "./Ball";
 import { toFrameStepScale } from "./Ball";
+import { type Block } from "./Block";
 import { StarField } from "./StarField";
 import { HUD } from "./HUD";
 import { Particles } from "./Particles";
@@ -63,6 +64,9 @@ const STAR_PRAISE_DELAY_MS = 350;
 const WAVE_CLEAR_OVERLAY_DELAY_MS = 3600;
 const WORLD_CLEAR_OVERLAY_DELAY_MS = 4700;
 const MOBILE_BOTTOM_UI_SAFE_SPACE = 6.2;
+const SPLIT_BALL_ANGLE_OFFSET = 0.32;
+const INTERNAL_BALL_SAFETY_LIMIT = 12;
+const REFLECT_BLOCK_DAMAGE = 1;
 
 export function getRankingStorageKey(world: number) {
   return `bokuzushi_ranking_world_${world}`;
@@ -84,12 +88,27 @@ export function getBallDistanceSpeedMultiplier(input: {
   return THREE.MathUtils.lerp(nearPaddleMultiplier, 1, easedRatio);
 }
 
+export function createSplitBallVelocities(input: {
+  vx: number;
+  vy: number;
+  speed: number;
+}) {
+  const baseAngle = Math.atan2(input.vy, input.vx);
+  return [
+    baseAngle - SPLIT_BALL_ANGLE_OFFSET,
+    baseAngle + SPLIT_BALL_ANGLE_OFFSET,
+  ].map((angle) => ({
+    vx: Math.cos(angle) * input.speed,
+    vy: Math.sin(angle) * input.speed,
+  }));
+}
+
 export class Game {
   private renderer: THREE.WebGLRenderer;
   private scene: THREE.Scene;
   private camera: THREE.OrthographicCamera;
   private paddle: Paddle;
-  private ball: Ball;
+  private balls: Ball[] = [];
   private starField: StarField;
   private hud: HUD;
   private particles: Particles;
@@ -170,8 +189,7 @@ export class Game {
     this.paddle = new Paddle();
     this.scene.add(this.paddle.mesh);
 
-    this.ball = new Ball(this.scene);
-    this.scene.add(this.ball.mesh);
+    this.balls.push(this.createBall());
 
     this.starField = new StarField(this.scene);
     this.hud = new HUD();
@@ -217,10 +235,75 @@ export class Game {
     this.updateHUD();
   }
 
+  private createBall() {
+    const ball = new Ball(this.scene);
+    this.scene.add(ball.mesh);
+    return ball;
+  }
+
+  private getPrimaryBall() {
+    return this.balls[0]!;
+  }
+
+  private getActiveBalls() {
+    return this.balls.filter((ball) => ball.active);
+  }
+
+  private getEffectBall() {
+    return this.getActiveBalls()[0] ?? this.getPrimaryBall();
+  }
+
+  private removeExtraBalls() {
+    while (this.balls.length > 1) {
+      const ball = this.balls.pop();
+      ball?.dispose();
+    }
+  }
+
+  private resetBalls(speed: number) {
+    this.removeExtraBalls();
+    const ball = this.getPrimaryBall();
+    ball.mesh.visible = true;
+    ball.speed = speed;
+    ball.reset(this.paddle.x, this.paddle.y);
+    this.syncBallTier();
+  }
+
+  private spawnSplitBalls(source: Ball) {
+    if (this.balls.length >= INTERNAL_BALL_SAFETY_LIMIT) return;
+
+    for (const velocity of createSplitBallVelocities({
+      vx: source.vx,
+      vy: source.vy,
+      speed: source.speed,
+    })) {
+      if (this.balls.length >= INTERNAL_BALL_SAFETY_LIMIT) break;
+      const ball = this.createBall();
+      ball.speed = source.speed;
+      ball.colorIndex = this.progression.ballColorIndex;
+      ball.applyColor();
+      ball.updateGlow();
+      ball.mesh.visible = true;
+      ball.mesh.position.copy(source.mesh.position);
+      ball.prevX = source.prevX;
+      ball.prevY = source.prevY;
+      ball.vx = velocity.vx;
+      ball.vy = velocity.vy;
+      ball.active = true;
+      this.balls.push(ball);
+    }
+  }
+
+  private clearAllBalls() {
+    for (const ball of this.balls) {
+      ball.deactivate(true);
+    }
+  }
+
   private applyMobileLayout() {
     const lift = this.coarsePointer ? MOBILE_PADDLE_LIFT : 0;
     this.paddle.setY(this.paddle.baseY + lift);
-    this.ball.reset(this.paddle.x, this.paddle.y);
+    this.resetBalls(this.getBaseSpeed());
   }
 
   private createWorldButtons() {
@@ -413,17 +496,19 @@ export class Game {
     const star = this.starField.star;
     if (!star?.alive) return undefined;
 
-    const dx = star.mesh.position.x - this.ball.mesh.position.x;
-    const dy = star.mesh.position.y - this.ball.mesh.position.y;
+    const ball = this.getPrimaryBall();
+    const dx = star.mesh.position.x - ball.mesh.position.x;
+    const dy = star.mesh.position.y - ball.mesh.position.y;
     if (dy <= 0) return undefined;
 
     return Math.atan2(dy, dx);
   }
 
   private launchBallIfReady() {
-    if (this.state !== "playing" || this.ball.active || this.paused) return;
+    const ball = this.getPrimaryBall();
+    if (this.state !== "playing" || ball.active || this.paused) return;
 
-    this.ball.launch({
+    ball.launch({
       avoidAngle: this.initialServePending ? this.getInitialServeAvoidAngle() : undefined,
     });
     this.initialServePending = false;
@@ -554,6 +639,7 @@ export class Game {
     this.state = "start";
     this.rankingWorld = Math.max(1, Math.min(this.world, this.unlockedWorld));
     this.initialServePending = false;
+    this.resetBalls(this.getBaseSpeed());
     this.pauseBtn.classList.add("hidden");
     this.pauseOverlay.classList.remove("show");
     this.pauseOverlay.setAttribute("aria-hidden", "true");
@@ -666,34 +752,34 @@ export class Game {
     return this.coarsePointer ? 0.88 : 1;
   }
 
-  private getBallPaddleDistanceRatio(): number {
+  private getBallPaddleDistanceRatio(ball: Ball): number {
     const ceiling = GAME_HEIGHT / 2 - BALL_RADIUS;
     const travel = Math.max(0.001, ceiling - this.paddle.top);
-    const distance = THREE.MathUtils.clamp(this.ball.mesh.position.y - this.paddle.top, 0, travel);
+    const distance = THREE.MathUtils.clamp(ball.mesh.position.y - this.paddle.top, 0, travel);
     return distance / travel;
   }
 
-  private getBallDistanceSpeedMultiplier(): number {
+  private getBallDistanceSpeedMultiplier(ball: Ball): number {
     return getBallDistanceSpeedMultiplier({
-      distanceRatio: this.getBallPaddleDistanceRatio(),
-      verticalVelocity: this.ball.vy,
+      distanceRatio: this.getBallPaddleDistanceRatio(ball),
+      verticalVelocity: ball.vy,
       world: this.world,
       coarsePointer: this.coarsePointer,
     });
   }
 
-  private syncBallDistanceSpeed() {
-    if (!this.ball.active) return;
-    const velocity = Math.hypot(this.ball.vx, this.ball.vy);
+  private syncBallDistanceSpeed(ball: Ball) {
+    if (!ball.active) return;
+    const velocity = Math.hypot(ball.vx, ball.vy);
     if (velocity <= 0.0001) return;
 
     const targetSpeed = Math.min(
-      this.ball.speed * this.getBallDistanceSpeedMultiplier(),
+      ball.speed * this.getBallDistanceSpeedMultiplier(ball),
       this.getMaxSpeed()
     );
     const speedScale = targetSpeed / velocity;
-    this.ball.vx *= speedScale;
-    this.ball.vy *= speedScale;
+    ball.vx *= speedScale;
+    ball.vy *= speedScale;
   }
 
   private getWorldName(): string {
@@ -712,9 +798,11 @@ export class Game {
   }
 
   private syncBallTier() {
-    this.ball.colorIndex = this.progression.ballColorIndex;
-    this.ball.applyColor();
-    this.ball.updateGlow();
+    for (const ball of this.balls) {
+      ball.colorIndex = this.progression.ballColorIndex;
+      ball.applyColor();
+      ball.updateGlow();
+    }
     this.hud.updateBallColor(this.getBallColorHex());
   }
 
@@ -746,14 +834,13 @@ export class Game {
     this.progression = createProgressionState();
     this.resetRoundMomentum();
     this.syncBallTier();
-    this.ball.speed = this.getBaseSpeed();
+    this.resetBalls(this.getBaseSpeed());
     this.starField.generate(0, this.world - 1, {
       coarsePointer: this.coarsePointer,
       paddleTop: this.paddle.top,
     });
     this.particles.setWorld(this.world - 1);
     this.worldBg.generate(this.world - 1);
-    this.ball.reset(this.paddle.x, this.paddle.y);
     this.initialServePending = true;
     this.mouseX = this.paddle.x;
     this.state = "playing";
@@ -771,12 +858,12 @@ export class Game {
     this.reachStage = 0;
     this.feverReadyShown = false;
     this.resetRoundMomentum();
-    this.ball.speed = Math.min(this.ball.speed + this.getWaveSpeedIncrement(), this.getMaxSpeed());
+    const nextSpeed = Math.min(this.getPrimaryBall().speed + this.getWaveSpeedIncrement(), this.getMaxSpeed());
+    this.resetBalls(nextSpeed);
     this.starField.generate(this.wave - 1, this.world - 1, {
       coarsePointer: this.coarsePointer,
       paddleTop: this.paddle.top,
     });
-    this.ball.reset(this.paddle.x, this.paddle.y);
     this.initialServePending = true;
     this.mouseX = this.paddle.x;
     this.state = "playing";
@@ -799,14 +886,13 @@ export class Game {
     this.progression = createProgressionState();
     this.resetRoundMomentum();
     this.syncBallTier();
-    this.ball.speed = this.getBaseSpeed();
+    this.resetBalls(this.getBaseSpeed());
     this.starField.generate(0, this.world - 1, {
       coarsePointer: this.coarsePointer,
       paddleTop: this.paddle.top,
     });
     this.particles.setWorld(this.world - 1);
     this.worldBg.generate(this.world - 1);
-    this.ball.reset(this.paddle.x, this.paddle.y);
     this.initialServePending = true;
     this.mouseX = this.paddle.x;
     this.state = "playing";
@@ -904,7 +990,8 @@ export class Game {
     const color = this.progression.ballColorIndex >= BLOCK_COLORS.length
       ? 0xffffff
       : BLOCK_COLORS[this.progression.ballColorIndex];
-    this.particles.colorChangeBurst(this.ball.mesh.position.x, this.ball.mesh.position.y, color, strength);
+    const ball = this.getEffectBall();
+    this.particles.colorChangeBurst(ball.mesh.position.x, ball.mesh.position.y, color, strength);
   }
 
   private triggerLevelUpFx(levelUps: number, reachedMaxTier: boolean) {
@@ -913,7 +1000,8 @@ export class Game {
     this.ballSparkCooldown = 0;
     this.emitBallSparkBurst(strength);
     this.emitBallSparkBurst(strength * 0.85);
-    const screenPos = this.worldToScreen(this.ball.mesh.position.x, this.ball.mesh.position.y);
+    const ball = this.getEffectBall();
+    const screenPos = this.worldToScreen(ball.mesh.position.x, ball.mesh.position.y);
     this.triggerShockwave(screenPos.x, screenPos.y);
     this.flashScreen("rgba(255,245,180,0.72)", reachedMaxTier ? 240 : 180, reachedMaxTier ? 0.62 : 0.48);
     this.multiFlash(
@@ -1069,117 +1157,215 @@ export class Game {
     }
   }
 
-  private checkBallPaddle() {
-    const bx = this.ball.mesh.position.x;
-    const by = this.ball.mesh.position.y;
-    if (
-      this.ball.vy < 0
-      && by - BALL_RADIUS <= this.paddle.top
-      && by + BALL_RADIUS >= this.paddle.bottom
-      && bx + BALL_RADIUS >= this.paddle.left
-      && bx - BALL_RADIUS <= this.paddle.right
-    ) {
-      const hitPos = (bx - this.paddle.x) / (PADDLE_WIDTH / 2);
-      const clampedHit = Math.max(-0.95, Math.min(0.95, hitPos));
-      const angle = Math.PI / 2 - clampedHit * (Math.PI / 3);
-      this.ball.vx = Math.cos(angle) * this.ball.speed;
-      this.ball.vy = Math.abs(Math.sin(angle) * this.ball.speed);
-      this.ball.mesh.position.y = this.paddle.top + BALL_RADIUS;
-      this.paddleBounces += 1;
+  private getBlockColor(block: Block) {
+    return ((block.mesh.material as THREE.MeshStandardMaterial).color as THREE.Color).getHex();
+  }
+
+  private rewardDestroyedBlock(
+    block: Block,
+    points: number,
+    feverGain: number,
+    options: {
+      destroysImmediately?: boolean;
+      chain?: boolean;
+    } = {}
+  ) {
+    const color = this.getBlockColor(block);
+    const sx = block.mesh.position.x;
+    const sy = block.mesh.position.y;
+    const chain = options.chain === true;
+
+    this.onBlockDestroyed();
+    this.addScore(points);
+    this.addCombo();
+    this.pushProgression(chargeFever(
+      this.progression,
+      feverGain + (chain ? 0 : Math.min(this.progression.combo * 2, 18))
+    ));
+
+    if (chain) {
+      this.particles.hitBurst(sx, sy, color);
+      this.shake(0.08, 0.1);
+    } else {
+      this.particles.burst(sx, sy, color);
+      this.shake(options.destroysImmediately ? 0.35 : 0.28, 0.16);
+      this.flashScreen("rgba(255,255,255,0.6)", 140, 0.42);
+    }
+
+    const screenPos = this.worldToScreen(sx, sy);
+    this.triggerShockwave(screenPos.x, screenPos.y);
+    this.hud.showScorePopup(screenPos.x, screenPos.y, Math.round(points * getScoreMultiplier(this.progression)));
+
+    if (!chain && options.destroysImmediately && Math.random() < 0.45) {
+      this.hud.showBigText(this.pick(["貫通!!", "突破!", "粉砕!", "一閃!", "星路ひらく!", "通った!!"]), "atsu");
     }
   }
 
-  private checkBallBlocks() {
-    const bx = this.ball.mesh.position.x;
-    const by = this.ball.mesh.position.y;
-    const bhw = BLOCK_WIDTH / 2;
-    const bhh = BLOCK_HEIGHT / 2;
+  private triggerBombExplosion(origin: Block, seen = new Set<string>()) {
+    const key = `${origin.row}:${origin.col}`;
+    if (seen.has(key)) return;
+    seen.add(key);
 
-    for (const block of this.starField.getAliveBlocks()) {
-      const sx = block.mesh.position.x;
-      const sy = block.mesh.position.y;
+    const screenPos = this.worldToScreen(origin.mesh.position.x, origin.mesh.position.y);
+    this.flashScreen("rgba(255,140,64,0.7)", 180, 0.4);
+    this.triggerShockwave(screenPos.x, screenPos.y);
+    this.shake(0.42, 0.2);
 
+    const neighbors = this.starField.getAliveBlocks().filter((block) => {
+      if (block === origin) return false;
+      return Math.abs(block.row - origin.row) <= 1 && Math.abs(block.col - origin.col) <= 1;
+    });
+
+    for (const block of neighbors) {
+      if (!block.alive) continue;
+      block.destroy();
+      this.rewardDestroyedBlock(block, block.maxHp * 10, 8, { chain: true });
+      if (block.kind === "bomb") {
+        this.triggerBombExplosion(block, seen);
+      }
+    }
+  }
+
+  private checkBallPaddle() {
+    for (const ball of this.getActiveBalls()) {
+      const bx = ball.mesh.position.x;
+      const by = ball.mesh.position.y;
       if (
-        bx + BALL_RADIUS > sx - bhw
-        && bx - BALL_RADIUS < sx + bhw
-        && by + BALL_RADIUS > sy - bhh
-        && by - BALL_RADIUS < sy + bhh
+        ball.vy < 0
+        && by - BALL_RADIUS <= this.paddle.top
+        && by + BALL_RADIUS >= this.paddle.bottom
+        && bx + BALL_RADIUS >= this.paddle.left
+        && bx - BALL_RADIUS <= this.paddle.right
       ) {
-        const color = ((block.mesh.material as THREE.MeshStandardMaterial).color as THREE.Color).getHex();
-        const resolution = resolveBlockHit({
-          level: this.progression.level,
-          ballColorIndex: this.progression.ballColorIndex,
-          blockColorIndex: block.colorIndex,
-          blockMaxHp: block.maxHp,
-          indestructible: block.indestructible,
-        });
+        const hitPos = (bx - this.paddle.x) / (PADDLE_WIDTH / 2);
+        const clampedHit = Math.max(-0.95, Math.min(0.95, hitPos));
+        const angle = Math.PI / 2 - clampedHit * (Math.PI / 3);
+        ball.vx = Math.cos(angle) * ball.speed;
+        ball.vy = Math.abs(Math.sin(angle) * ball.speed);
+        ball.mesh.position.y = this.paddle.top + BALL_RADIUS;
+        this.paddleBounces += 1;
+      }
+    }
+  }
 
-        this.pushProgression(applyBlockHit(this.progression));
+  private handleBlockCollision(
+    ball: Ball,
+    block: Block,
+    bx: number,
+    by: number,
+    bhw: number,
+    bhh: number
+  ) {
+    const sx = block.mesh.position.x;
+    const sy = block.mesh.position.y;
+    this.pushProgression(applyBlockHit(this.progression));
 
-        let destroyed = false;
-        let points = 0;
+    if (block.kind === "split") {
+      block.destroy();
+      this.spawnSplitBalls(ball);
+      this.rewardDestroyedBlock(block, block.maxHp * 12, 16, { destroysImmediately: true });
+      this.particles.colorChangeBurst(sx, sy, 0x57ffe5, 1.3);
+      this.updateHUD();
+      return;
+    }
 
-        if (resolution.destroysImmediately) {
-          destroyed = true;
-          block.destroy();
-        } else {
-          destroyed = block.hit(resolution.damage);
-          if (resolution.shouldBounce) {
-            this.bounceOffBlock(bx, by, sx, sy, bhw, bhh);
-          }
-        }
+    if (block.kind === "reflect") {
+      const destroyed = block.hit(REFLECT_BLOCK_DAMAGE);
+      this.bounceOffBlock(ball, bx, by, sx, sy, bhw, bhh);
+      if (destroyed) {
+        this.rewardDestroyedBlock(block, block.maxHp * 14, 14);
+      } else {
+        this.pushProgression(chargeFever(this.progression, 4));
+        this.particles.hitBurst(sx, sy, this.getBlockColor(block));
+        this.flashScreen("rgba(180,235,255,0.26)", 90, 0.16);
+        this.shake(0.12, 0.12);
+      }
+      this.updateHUD();
+      return;
+    }
 
-        if (destroyed) {
-          points = resolution.scoreOnDestroy;
-          this.onBlockDestroyed();
-          this.addScore(points);
-          this.addCombo();
+    const resolution = resolveBlockHit({
+      level: this.progression.level,
+      ballColorIndex: this.progression.ballColorIndex,
+      blockColorIndex: block.colorIndex,
+      blockMaxHp: block.maxHp,
+      indestructible: block.indestructible,
+    });
 
-          const feverCharge = resolution.feverGain + Math.min(this.progression.combo * 2, 18);
-          this.pushProgression(chargeFever(this.progression, feverCharge));
-
-          this.particles.burst(sx, sy, color);
-          this.shake(resolution.destroysImmediately ? 0.35 : 0.28, 0.16);
-          this.flashScreen("rgba(255,255,255,0.6)", 140, 0.42);
-          const screenPos = this.worldToScreen(sx, sy);
-          this.triggerShockwave(screenPos.x, screenPos.y);
-          this.hud.showScorePopup(screenPos.x, screenPos.y, Math.round(points * getScoreMultiplier(this.progression)));
-          if (resolution.destroysImmediately && Math.random() < 0.45) {
-            this.hud.showBigText(this.pick(["貫通!!", "突破!", "粉砕!", "一閃!", "星路ひらく!", "通った!!"]), "atsu");
-          }
-        } else {
-          this.pushProgression(chargeFever(this.progression, Math.max(3, Math.floor(resolution.feverGain / 3))));
-          this.particles.hitBurst(sx, sy, color);
-          this.shake(0.12, 0.14);
-          this.flashScreen("rgba(255,255,255,0.24)", 70, 0.18);
-        }
-
-        this.updateHUD();
+    let destroyed = false;
+    if (resolution.destroysImmediately) {
+      destroyed = true;
+      block.destroy();
+    } else {
+      destroyed = block.hit(resolution.damage);
+      if (resolution.shouldBounce) {
+        this.bounceOffBlock(ball, bx, by, sx, sy, bhw, bhh);
       }
     }
 
-    const star = this.starField.star;
-    if (star?.alive) {
-      const sx = star.mesh.position.x;
-      const sy = star.mesh.position.y;
-      const dist = Math.sqrt((bx - sx) ** 2 + (by - sy) ** 2);
-      if (dist < BALL_RADIUS + star.boundingRadius) {
-        star.destroy();
-        this.onStarDestroyed(sx, sy);
+    if (destroyed) {
+      this.rewardDestroyedBlock(
+        block,
+        resolution.scoreOnDestroy,
+        resolution.feverGain,
+        { destroysImmediately: resolution.destroysImmediately }
+      );
+      if (block.kind === "bomb") {
+        this.triggerBombExplosion(block);
+      }
+    } else {
+      this.pushProgression(chargeFever(this.progression, Math.max(3, Math.floor(resolution.feverGain / 3))));
+      this.particles.hitBurst(sx, sy, this.getBlockColor(block));
+      this.shake(0.12, 0.14);
+      this.flashScreen("rgba(255,255,255,0.24)", 70, 0.18);
+    }
 
-        const dx = bx - sx;
-        const dy = by - sy;
-        if (Math.abs(dx) > Math.abs(dy)) {
-          this.ball.vx = Math.abs(this.ball.vx) * Math.sign(dx || 1);
-        } else {
-          this.ball.vy = Math.abs(this.ball.vy) * Math.sign(dy || 1);
+    this.updateHUD();
+  }
+
+  private checkBallBlocks() {
+    const bhw = BLOCK_WIDTH / 2;
+    const bhh = BLOCK_HEIGHT / 2;
+
+    for (const ball of [...this.getActiveBalls()]) {
+      const bx = ball.mesh.position.x;
+      const by = ball.mesh.position.y;
+
+      let collided = false;
+      for (const block of this.starField.getAliveBlocks()) {
+        const sx = block.mesh.position.x;
+        const sy = block.mesh.position.y;
+        if (
+          bx + BALL_RADIUS > sx - bhw
+          && bx - BALL_RADIUS < sx + bhw
+          && by + BALL_RADIUS > sy - bhh
+          && by - BALL_RADIUS < sy + bhh
+        ) {
+          this.handleBlockCollision(ball, block, bx, by, bhw, bhh);
+          collided = true;
+          break;
+        }
+      }
+
+      if (this.state !== "playing") return;
+      if (collided) continue;
+
+      const star = this.starField.star;
+      if (star?.alive) {
+        const sx = star.mesh.position.x;
+        const sy = star.mesh.position.y;
+        const dist = Math.sqrt((bx - sx) ** 2 + (by - sy) ** 2);
+        if (dist < BALL_RADIUS + star.boundingRadius) {
+          star.destroy();
+          this.onStarDestroyed(sx, sy);
+          return;
         }
       }
     }
   }
 
   private onStarDestroyed(sx: number, sy: number) {
-    this.ball.active = false;
+    this.clearAllBalls();
     this.particles.starBurst(sx, sy);
 
     const starBonus = Math.max(100, 2000 - this.paddleBounces * 30);
@@ -1253,6 +1439,7 @@ export class Game {
   }
 
   private bounceOffBlock(
+    ball: Ball,
     bx: number,
     by: number,
     sx: number,
@@ -1261,8 +1448,8 @@ export class Game {
     hh: number
   ) {
     const axis = getBounceAxis({
-      prevX: this.ball.prevX,
-      prevY: this.ball.prevY,
+      prevX: ball.prevX,
+      prevY: ball.prevY,
       nextX: bx,
       nextY: by,
       blockX: sx,
@@ -1273,13 +1460,13 @@ export class Game {
     });
 
     if (axis === "x") {
-      const direction = this.ball.prevX <= sx ? -1 : 1;
-      this.ball.vx = Math.abs(this.ball.vx) * direction;
-      this.ball.mesh.position.x = sx + direction * (hw + BALL_RADIUS);
+      const direction = ball.prevX <= sx ? -1 : 1;
+      ball.vx = Math.abs(ball.vx) * direction;
+      ball.mesh.position.x = sx + direction * (hw + BALL_RADIUS);
     } else {
-      const direction = this.ball.prevY <= sy ? -1 : 1;
-      this.ball.vy = Math.abs(this.ball.vy) * direction;
-      this.ball.mesh.position.y = sy + direction * (hh + BALL_RADIUS);
+      const direction = ball.prevY <= sy ? -1 : 1;
+      ball.vy = Math.abs(ball.vy) * direction;
+      ball.mesh.position.y = sy + direction * (hh + BALL_RADIUS);
     }
   }
 
@@ -1353,14 +1540,24 @@ export class Game {
     this.paddle.update();
 
     if (this.state === "playing") {
-      if (!this.ball.active) {
-        this.ball.mesh.position.x = this.paddle.x;
-        this.ball.mesh.position.y = this.paddle.y + 0.5;
+      if (this.initialServePending && this.getActiveBalls().length === 0) {
+        const ball = this.getPrimaryBall();
+        ball.mesh.position.x = this.paddle.x;
+        ball.mesh.position.y = this.paddle.y + 0.5;
       }
 
-      this.syncBallDistanceSpeed();
-      const lost = this.ball.update(frameScale * this.timeScale);
-      if (lost) {
+      for (const ball of [...this.getActiveBalls()]) {
+        this.syncBallDistanceSpeed(ball);
+        const lost = ball.update(frameScale * this.timeScale);
+        if (!lost) continue;
+        ball.deactivate();
+        if (this.balls.length > 1) {
+          this.balls = this.balls.filter((candidate) => candidate !== ball);
+          ball.dispose();
+        }
+      }
+
+      if (!this.initialServePending && this.getActiveBalls().length === 0) {
         this.shake(0.9, 0.45);
         this.multiFlash(6, 70, ["#ff0022", "#ffffff", "#880000"]);
         this.state = "gameover";
@@ -1381,9 +1578,13 @@ export class Game {
 
       this.checkBallPaddle();
       this.checkBallBlocks();
-      this.syncBallDistanceSpeed();
+      for (const ball of this.getActiveBalls()) {
+        this.syncBallDistanceSpeed(ball);
+      }
       this.starField.update();
-      this.ball.updateTrail(frameScale);
+      for (const ball of this.balls) {
+        ball.updateTrail(frameScale);
+      }
       this.updateHUD();
     }
 

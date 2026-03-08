@@ -180,6 +180,14 @@ export class Ball {
     this.clearTrail();
   }
 
+  deactivate(hide = false) {
+    this.active = false;
+    this.vx = 0;
+    this.vy = 0;
+    this.clearTrail();
+    this.mesh.visible = !hide;
+  }
+
   updateGlow() {
     const tier = this.colorIndex;
     const auraMat = this.aura.material as THREE.MeshBasicMaterial;
@@ -273,5 +281,12 @@ export class Ball {
       return true; // ball lost
     }
     return false;
+  }
+
+  dispose() {
+    this.scene.remove(this.mesh);
+    for (const trailMesh of this.trail) {
+      this.scene.remove(trailMesh);
+    }
   }
 }

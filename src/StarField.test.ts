@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getBlockLayoutProfile,
   getFrontRowDurabilityProfile,
+  getSpecialBlockPlan,
   getStarPlacementProfile,
 } from "./StarField";
 import {
@@ -131,5 +132,33 @@ describe("WORLD_THEMES", () => {
     expect(WORLD_THEMES[3]?.rows).toBe(32);
     expect(WORLD_THEMES[4]?.rows).toBe(28);
     expect(WORLD_THEMES[3]?.maxColorTier).toBeGreaterThan(WORLD_THEMES[4]?.maxColorTier ?? 0);
+  });
+});
+
+describe("getSpecialBlockPlan", () => {
+  it("1章と2章は追加特殊ブロックを出さない", () => {
+    expect(getSpecialBlockPlan(0, 0)).toEqual([]);
+    expect(getSpecialBlockPlan(1, 2)).toEqual([]);
+  });
+
+  it("3章で爆弾を解禁する", () => {
+    expect(getSpecialBlockPlan(2, 1)).toEqual([
+      { kind: "bomb", count: 2 },
+    ]);
+  });
+
+  it("4章で爆弾と増殖を累積解禁する", () => {
+    expect(getSpecialBlockPlan(3, 2)).toEqual([
+      { kind: "bomb", count: 3 },
+      { kind: "split", count: 2 },
+    ]);
+  });
+
+  it("5章で反射を追加しつつ以前の特殊も残す", () => {
+    expect(getSpecialBlockPlan(4, 2)).toEqual([
+      { kind: "bomb", count: 2 },
+      { kind: "split", count: 1 },
+      { kind: "reflect", count: 2 },
+    ]);
   });
 });
