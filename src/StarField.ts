@@ -303,17 +303,17 @@ export function getSpecialBlockPlan(worldIndex: number, waveIndex: number): Spec
     case 2:
       return [
         { kind: "split", count: waveIndex >= 2 ? 6 : 4 },
-        { kind: "extend", count: waveIndex >= 2 ? 8 : 6 },
+        { kind: "extend", count: waveIndex >= 2 ? 14 : 10 },
       ];
     case 3:
       return [
         { kind: "split", count: waveIndex >= 2 ? 5 : 3 },
-        { kind: "extend", count: waveIndex >= 2 ? 6 : 4 },
+        { kind: "extend", count: waveIndex >= 2 ? 12 : 8 },
       ];
     default:
       return [
         { kind: "split", count: waveIndex >= 2 ? 6 : 4 },
-        { kind: "extend", count: waveIndex >= 2 ? 5 : 3 },
+        { kind: "extend", count: waveIndex >= 2 ? 10 : 6 },
         { kind: "reflect", count: waveIndex >= 2 ? 10 : 8 },
       ];
   }

@@ -67,8 +67,7 @@ const SPLIT_BALL_ANGLE_OFFSET = 0.32;
 const INTERNAL_BALL_SAFETY_LIMIT = 12;
 const REFLECT_BLOCK_DAMAGE = 1;
 const DEBUG_UNLOCK_STORAGE_KEY = "bokuzushi_debug_unlock_all";
-const PADDLE_EXTEND_STEP = 0.22;
-const PADDLE_EXTEND_MAX_MULTIPLIER = 1.88;
+const PADDLE_EXTEND_BASE_MULTIPLIER = 1.5;
 
 function parseUnlockedWorld(rawValue: string | null | undefined) {
   const parsed = Number.parseInt(rawValue ?? "1", 10);
@@ -90,11 +89,7 @@ export function isDebugUnlockAllEnabled(input: {
 }
 
 export function getExtendedPaddleMultiplier(currentMultiplier: number) {
-  return THREE.MathUtils.clamp(
-    currentMultiplier + PADDLE_EXTEND_STEP,
-    1,
-    PADDLE_EXTEND_MAX_MULTIPLIER
-  );
+  return Math.max(currentMultiplier, PADDLE_EXTEND_BASE_MULTIPLIER);
 }
 
 export function getRankingStorageKey(world: number) {
@@ -934,6 +929,7 @@ export class Game {
     this.feverReadyShown = false;
     this.progression = createProgressionState();
     this.resetRoundMomentum();
+    this.resetPaddleBoost();
     this.syncBallTier();
     this.resetBalls(this.getBaseSpeed());
     this.starField.generate(0, this.world - 1, {

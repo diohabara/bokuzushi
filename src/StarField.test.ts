@@ -152,21 +152,21 @@ describe("getSpecialBlockPlan", () => {
   it("3章で2章要素を引き継ぎつつ返し板延長を解禁する", () => {
     expect(getSpecialBlockPlan(2, 1)).toEqual([
       { kind: "split", count: 4 },
-      { kind: "extend", count: 6 },
+      { kind: "extend", count: 10 },
     ]);
   });
 
   it("4章で3章までの要素を引き継ぎつつ超耐久配置を主役にする", () => {
     expect(getSpecialBlockPlan(3, 2)).toEqual([
       { kind: "split", count: 5 },
-      { kind: "extend", count: 6 },
+      { kind: "extend", count: 12 },
     ]);
   });
 
   it("5章で4章までの要素を引き継ぎつつ反射を追加する", () => {
     expect(getSpecialBlockPlan(4, 2)).toEqual([
       { kind: "split", count: 6 },
-      { kind: "extend", count: 5 },
+      { kind: "extend", count: 10 },
       { kind: "reflect", count: 10 },
     ]);
   });
@@ -191,7 +191,7 @@ describe("StarField special generation", () => {
     const splits = starField.blocks.filter((block) => block.kind === "split");
     const extendsBlocks = starField.blocks.filter((block) => block.kind === "extend");
     expect(splits.length).toBeGreaterThanOrEqual(4);
-    expect(extendsBlocks.length).toBeGreaterThanOrEqual(8);
+    expect(extendsBlocks.length).toBeGreaterThanOrEqual(14);
     expect(Math.max(...extendsBlocks.map((block) => block.row))).toBeGreaterThanOrEqual(21);
   });
 
@@ -217,7 +217,7 @@ describe("StarField special generation", () => {
     );
     expect(indestructibles.length).toBeGreaterThanOrEqual(35);
     expect(splits.length).toBeGreaterThanOrEqual(5);
-    expect(extendsBlocks.length).toBeGreaterThanOrEqual(6);
+    expect(extendsBlocks.length).toBeGreaterThanOrEqual(12);
     expect(guarded.length).toBeGreaterThanOrEqual(6);
   });
 
@@ -230,7 +230,7 @@ describe("StarField special generation", () => {
     const extendsBlocks = starField.blocks.filter((block) => block.kind === "extend");
     expect(reflects.length).toBeGreaterThanOrEqual(10);
     expect(splits.length).toBeGreaterThanOrEqual(6);
-    expect(extendsBlocks.length).toBeGreaterThanOrEqual(5);
+    expect(extendsBlocks.length).toBeGreaterThanOrEqual(10);
     expect(Math.min(...reflects.map((block) => block.row))).toBeLessThanOrEqual(9);
   });
 
