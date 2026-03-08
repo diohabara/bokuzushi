@@ -246,7 +246,7 @@ export const WORLD_CONTENT: WorldContent[] = [
   },
   {
     name: "黄金",
-    subtitle: "きわみのみち",
+    subtitle: "おうどう",
     emoji: "👑",
     docsRange: "緑〜紫",
     docsTheme: "極",
