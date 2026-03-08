@@ -17,7 +17,7 @@ import {
   IndestructiblePattern,
 } from "./constants";
 
-type PatternFn = (cols: number, rows: number) => boolean[][];
+type PatternFn = (cols: number, rows: number, rng: () => number) => boolean[][];
 type StarFieldGenerateOptions = {
   coarsePointer?: boolean;
   paddleTop?: number;
@@ -40,6 +40,8 @@ const DESKTOP_BLOCK_TOP_MARGIN = 0.1;
 const MOBILE_BLOCK_TOP_MARGIN = 0.2;
 const LATE_WORLD_PADDLE_CLEARANCE = 1.2;
 const DEEP_WORLD_PADDLE_CLEARANCE = 1.8;
+
+const STARFIELD_BASE_SEED = 0x5a17c9d3;
 
 const patternMap: Record<PatternName, PatternFn> = {
   // Full wall — ball must smash through everything
@@ -76,9 +78,9 @@ const patternMap: Record<PatternName, PatternFn> = {
     ),
 
   // Nearly full random — 95% fill
-  random: (cols, rows) =>
+  random: (cols, rows, rng) =>
     Array.from({ length: rows }, () =>
-      Array.from({ length: cols }, () => Math.random() > 0.05)
+      Array.from({ length: cols }, () => rng() > 0.05)
     ),
 
   // Tight concentric rings — ball ping-pongs between rings
@@ -309,9 +311,27 @@ export function getSpecialBlockPlan(worldIndex: number, waveIndex: number): Spec
   }
 }
 
-function shuffleInPlace<T>(items: T[]) {
+function createSeededRandom(seed: number) {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function mixSeed(...parts: number[]) {
+  let seed = STARFIELD_BASE_SEED;
+  for (const part of parts) {
+    seed = Math.imul(seed ^ (part + 0x9e3779b9), 2654435761) >>> 0;
+  }
+  return seed >>> 0;
+}
+
+function shuffleInPlace<T>(items: T[], rng: () => number) {
   for (let index = items.length - 1; index > 0; index--) {
-    const swapIndex = Math.floor(Math.random() * (index + 1));
+    const swapIndex = Math.floor(rng() * (index + 1));
     [items[index], items[swapIndex]] = [items[swapIndex], items[index]];
   }
   return items;
@@ -357,56 +377,60 @@ function clampCol(col: number, cols: number) {
 
 function getSpecialShowcasePlacements(
   worldIndex: number,
-  waveIndex: number,
+  _waveIndex: number,
   rows: number,
   cols: number,
-  starRow: number,
+  _starRow: number,
   starCol: number,
-  pathHalfWidth: number
+  pathHalfWidth: number,
+  rng: () => number
 ): SpecialPlacement[] {
+  const jitterRow = (row: number) => clampRow(row + Math.floor(rng() * 3) - 1, rows);
+  const jitterCol = (col: number) => clampCol(col + Math.floor(rng() * 3) - 1, cols);
   const shoulderNear = pathHalfWidth + 2;
   const shoulderFar = pathHalfWidth + 3;
-  const frontRow = clampRow(Math.max(starRow + 3, Math.floor(rows * 0.56)), rows);
-  const deepRow = clampRow(Math.max(starRow + 6, Math.floor(rows * 0.72)), rows);
-  const lowRow = clampRow(Math.max(starRow + 8, Math.floor(rows * 0.82)), rows);
-  const midRow = clampRow(Math.floor(rows * 0.46), rows);
+  const upperRow = clampRow(Math.floor(rows * 0.28), rows);
+  const upperMidRow = clampRow(Math.floor(rows * 0.42), rows);
+  const midRow = clampRow(Math.floor(rows * 0.54), rows);
+  const lowerMidRow = clampRow(Math.floor(rows * 0.66), rows);
+  const lowRow = clampRow(Math.floor(rows * 0.76), rows);
 
   switch (worldIndex) {
     case 2:
       return [
-        { kind: "bomb", row: frontRow, col: clampCol(starCol - shoulderNear, cols) },
-        { kind: "bomb", row: frontRow, col: clampCol(starCol + shoulderNear, cols) },
-        { kind: "bomb", row: deepRow, col: clampCol(starCol - shoulderFar, cols) },
-        { kind: "bomb", row: deepRow, col: clampCol(starCol + shoulderFar, cols) },
-        { kind: "bomb", row: clampRow(deepRow - 2, rows), col: clampCol(starCol - shoulderNear, cols) },
-        { kind: "bomb", row: clampRow(deepRow - 2, rows), col: clampCol(starCol + shoulderNear, cols) },
+        { kind: "bomb", row: jitterRow(upperRow), col: jitterCol(starCol - shoulderFar) },
+        { kind: "bomb", row: jitterRow(upperRow), col: jitterCol(starCol + shoulderFar) },
+        { kind: "bomb", row: jitterRow(upperMidRow), col: jitterCol(starCol - shoulderNear) },
+        { kind: "bomb", row: jitterRow(upperMidRow), col: jitterCol(starCol + shoulderNear) },
+        { kind: "bomb", row: jitterRow(midRow), col: jitterCol(starCol - shoulderFar) },
+        { kind: "bomb", row: jitterRow(midRow), col: jitterCol(starCol + shoulderFar) },
       ];
     case 3:
       return [
-        { kind: "bomb", row: midRow, col: clampCol(starCol - shoulderFar, cols) },
-        { kind: "bomb", row: midRow, col: clampCol(starCol + shoulderFar, cols) },
-        { kind: "bomb", row: frontRow, col: clampCol(starCol - shoulderNear, cols) },
-        { kind: "bomb", row: frontRow, col: clampCol(starCol + shoulderNear, cols) },
-        { kind: "bomb", row: deepRow, col: clampCol(starCol + shoulderFar, cols) },
-        { kind: "split", row: clampRow(frontRow + 1, rows), col: clampCol(starCol - shoulderNear, cols) },
-        { kind: "split", row: clampRow(frontRow + 1, rows), col: clampCol(starCol + shoulderNear, cols) },
-        { kind: "split", row: lowRow, col: clampCol(starCol - shoulderFar, cols) },
-        { kind: "split", row: lowRow, col: clampCol(starCol + shoulderFar, cols) },
+        { kind: "bomb", row: jitterRow(upperMidRow), col: jitterCol(starCol - shoulderFar) },
+        { kind: "bomb", row: jitterRow(upperMidRow), col: jitterCol(starCol + shoulderFar) },
+        { kind: "bomb", row: jitterRow(midRow), col: jitterCol(starCol - shoulderNear) },
+        { kind: "bomb", row: jitterRow(midRow), col: jitterCol(starCol + shoulderNear) },
+        { kind: "bomb", row: jitterRow(lowerMidRow), col: jitterCol(starCol + shoulderFar) },
+        { kind: "split", row: jitterRow(midRow + 1), col: jitterCol(starCol - shoulderNear) },
+        { kind: "split", row: jitterRow(midRow + 1), col: jitterCol(starCol + shoulderNear) },
+        { kind: "split", row: jitterRow(lowRow), col: jitterCol(starCol - shoulderFar) },
+        { kind: "split", row: jitterRow(lowRow), col: jitterCol(starCol + shoulderFar) },
       ];
     default:
       return [
-        { kind: "reflect", row: midRow, col: clampCol(starCol - (pathHalfWidth + 1), cols) },
-        { kind: "reflect", row: midRow, col: clampCol(starCol + (pathHalfWidth + 1), cols) },
-        { kind: "reflect", row: frontRow, col: clampCol(starCol - (pathHalfWidth + 1), cols) },
-        { kind: "reflect", row: frontRow, col: clampCol(starCol + (pathHalfWidth + 1), cols) },
-        { kind: "reflect", row: deepRow, col: clampCol(starCol - shoulderNear, cols) },
-        { kind: "reflect", row: deepRow, col: clampCol(starCol + shoulderNear, cols) },
-        { kind: "bomb", row: clampRow(frontRow + 1, rows), col: clampCol(starCol - shoulderFar, cols) },
-        { kind: "bomb", row: clampRow(frontRow + 1, rows), col: clampCol(starCol + shoulderFar, cols) },
-        { kind: "bomb", row: lowRow, col: clampCol(starCol + shoulderFar, cols) },
-        { kind: "split", row: clampRow(deepRow + 1, rows), col: clampCol(starCol - shoulderNear, cols) },
-        { kind: "split", row: clampRow(deepRow + 1, rows), col: clampCol(starCol + shoulderNear, cols) },
-        { kind: "split", row: lowRow, col: clampCol(starCol - shoulderFar, cols) },
+        { kind: "reflect", row: jitterRow(upperMidRow), col: jitterCol(starCol - (pathHalfWidth + 1)) },
+        { kind: "reflect", row: jitterRow(upperMidRow), col: jitterCol(starCol + (pathHalfWidth + 1)) },
+        { kind: "reflect", row: jitterRow(midRow), col: jitterCol(starCol - (pathHalfWidth + 1)) },
+        { kind: "reflect", row: jitterRow(midRow), col: jitterCol(starCol + (pathHalfWidth + 1)) },
+        { kind: "reflect", row: jitterRow(lowerMidRow), col: jitterCol(starCol - shoulderNear) },
+        { kind: "reflect", row: jitterRow(lowerMidRow), col: jitterCol(starCol + shoulderNear) },
+        { kind: "bomb", row: jitterRow(midRow + 1), col: jitterCol(starCol - shoulderFar) },
+        { kind: "bomb", row: jitterRow(midRow + 1), col: jitterCol(starCol + shoulderFar) },
+        { kind: "bomb", row: jitterRow(lowRow), col: jitterCol(starCol + shoulderFar) },
+        { kind: "split", row: jitterRow(lowerMidRow + 1), col: jitterCol(starCol - shoulderNear) },
+        { kind: "split", row: jitterRow(lowerMidRow + 1), col: jitterCol(starCol + shoulderNear) },
+        { kind: "split", row: jitterRow(lowRow), col: jitterCol(starCol - shoulderFar) },
       ];
   }
 }
@@ -429,13 +453,14 @@ export class StarField {
     const patternFn = patternMap[patternName];
     const cols = theme.cols;
     const rows = theme.rows;
+    const rng = createSeededRandom(mixSeed(worldIndex + 1, waveIndex + 1, cols, rows));
     const layout = getBlockLayoutProfile(
       rows,
       options.coarsePointer === true && options.paddleTop !== undefined,
       options.paddleTop ?? 0
     );
 
-    const grid = patternFn(cols, rows);
+    const grid = patternFn(cols, rows, rng);
 
     const totalWidth = (cols - 1) * BLOCK_SPACING_X;
     const startX = -totalWidth / 2;
@@ -446,15 +471,15 @@ export class StarField {
     // Place star: start close in early stages, then push deeper as worlds and waves progress.
     const placement = getStarPlacementProfile(worldIndex, waveIndex);
     const starDepth = placement.starDepth;
-    const unclampedRow = Math.floor(rows * starDepth) + Math.floor(Math.random() * 2);
+    const unclampedRow = Math.floor(rows * starDepth) + Math.floor(rng() * 2);
     const starRow = Math.min(rows - 4, Math.max(2, unclampedRow));
 
     // Offset star from center only a little in early stages, then widen later.
     const centerCol = Math.floor(cols / 2);
     const colOffsetBase = placement.colOffsetBase;
-    const colOffsetExtra = placement.allowWideOffset ? Math.floor(Math.random() * 2) : 0;
+    const colOffsetExtra = placement.allowWideOffset ? Math.floor(rng() * 2) : 0;
     const colOffset = colOffsetBase + colOffsetExtra;
-    const starCol = Math.min(cols - 2, Math.max(1, centerCol + (Math.random() < 0.5 ? -colOffset : colOffset)));
+    const starCol = Math.min(cols - 2, Math.max(1, centerCol + (rng() < 0.5 ? -colOffset : colOffset)));
 
     // Generate indestructible mask
     const indestructibleMask = generateIndestructibleMask(
@@ -480,6 +505,27 @@ export class StarField {
       }
     }
 
+    const showcasePlacements = getSpecialShowcasePlacements(
+      worldIndex,
+      waveIndex,
+      rows,
+      cols,
+      starRow,
+      starCol,
+      placement.pathHalfWidth,
+      rng
+    ).filter(({ row, col }) => {
+      if (row === starRow && col === starCol) return false;
+      if (row >= rows - 2) return false;
+      if (row > starRow && Math.abs(col - starCol) <= placement.pathHalfWidth) return false;
+      return true;
+    });
+
+    for (const placementCell of showcasePlacements) {
+      grid[placementCell.row][placementCell.col] = true;
+      indestructibleMask[placementCell.row][placementCell.col] = false;
+    }
+
     const isEligibleSpecialCell = ({ row, col }: CellPosition) => {
       if (!grid[row]?.[col]) return false;
       if (indestructibleMask[row]?.[col]) return false;
@@ -493,15 +539,6 @@ export class StarField {
     const specialPlan = getSpecialBlockPlan(worldIndex, waveIndex);
     const remainingByKind = new Map<BlockKind, number>(
       specialPlan.map((spawn) => [spawn.kind, spawn.count])
-    );
-    const showcasePlacements = getSpecialShowcasePlacements(
-      worldIndex,
-      waveIndex,
-      rows,
-      cols,
-      starRow,
-      starCol,
-      placement.pathHalfWidth
     );
     for (const placementCell of showcasePlacements) {
       const remaining = remainingByKind.get(placementCell.kind) ?? 0;
@@ -517,7 +554,7 @@ export class StarField {
       Array.from({ length: rows }, (_, row) => row).flatMap((row) =>
         Array.from({ length: cols }, (_, col) => ({ row, col }))
       )
-    ).filter((cell) => isEligibleSpecialCell(cell) && !specialKindsByCell.has(`${cell.row}:${cell.col}`));
+    , rng).filter((cell) => isEligibleSpecialCell(cell) && !specialKindsByCell.has(`${cell.row}:${cell.col}`));
 
     let specialCursor = 0;
     for (const spawn of specialPlan) {

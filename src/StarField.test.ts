@@ -191,4 +191,21 @@ describe("StarField special generation", () => {
     const reflects = starField.blocks.filter((block) => block.kind === "reflect");
     expect(reflects.length).toBeGreaterThanOrEqual(6);
   });
+
+  it("同じ銀河と巡目なら特殊ブロック配置は seed 固定で再現される", () => {
+    const first = new StarField(new THREE.Scene());
+    const second = new StarField(new THREE.Scene());
+
+    first.generate(0, 2, { coarsePointer: false, paddleTop: PADDLE_Y + PADDLE_HEIGHT / 2 });
+    second.generate(0, 2, { coarsePointer: false, paddleTop: PADDLE_Y + PADDLE_HEIGHT / 2 });
+
+    const firstSpecials = first.blocks
+      .filter((block) => block.kind !== "normal" && block.kind !== "indestructible")
+      .map((block) => `${block.kind}:${block.row}:${block.col}`);
+    const secondSpecials = second.blocks
+      .filter((block) => block.kind !== "normal" && block.kind !== "indestructible")
+      .map((block) => `${block.kind}:${block.row}:${block.col}`);
+
+    expect(firstSpecials).toEqual(secondSpecials);
+  });
 });

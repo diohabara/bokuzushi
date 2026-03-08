@@ -72,6 +72,14 @@ export class Block {
         metalness: 0.3,
         roughness: 0.25,
       });
+      const edgeGeo = new THREE.EdgesGeometry(geo);
+      const edgeMat = new THREE.LineBasicMaterial({
+        color: 0xfff2d8,
+        transparent: true,
+        opacity: 0.9,
+      });
+      this.edgeGlow = new THREE.LineSegments(edgeGeo, edgeMat);
+      this.edgeGlow.position.set(x, y, 0.01);
       this.baseColor = new THREE.Color(0xff6a3d);
       this.baseEmissive = new THREE.Color(0xff3a18);
       this.baseEmissiveIntensity = 0.75;
@@ -83,6 +91,14 @@ export class Block {
         metalness: 0.2,
         roughness: 0.2,
       });
+      const edgeGeo = new THREE.EdgesGeometry(geo);
+      const edgeMat = new THREE.LineBasicMaterial({
+        color: 0xe4ffff,
+        transparent: true,
+        opacity: 0.88,
+      });
+      this.edgeGlow = new THREE.LineSegments(edgeGeo, edgeMat);
+      this.edgeGlow.position.set(x, y, 0.01);
       this.baseColor = new THREE.Color(0x57ffe5);
       this.baseEmissive = new THREE.Color(0x00d5d5);
       this.baseEmissiveIntensity = 0.68;
@@ -120,6 +136,65 @@ export class Block {
 
     this.mesh = new THREE.Mesh(geo, mat);
     this.mesh.position.set(x, y, 0);
+    this.addSpecialAccent();
+  }
+
+  private addSpecialAccent() {
+    const zFront = BLOCK_DEPTH / 2 + 0.03;
+
+    if (this.kind === "bomb") {
+      const core = new THREE.Mesh(
+        new THREE.SphereGeometry(0.12, 10, 10),
+        new THREE.MeshBasicMaterial({ color: 0xfff4b5 })
+      );
+      core.position.set(0, 0, zFront + 0.01);
+      this.mesh.add(core);
+
+      for (const rotationZ of [Math.PI / 4, -Math.PI / 4]) {
+        const bar = new THREE.Mesh(
+          new THREE.BoxGeometry(BLOCK_WIDTH * 0.5, 0.07, 0.02),
+          new THREE.MeshBasicMaterial({ color: 0x2a0600 })
+        );
+        bar.position.set(0, 0, zFront);
+        bar.rotation.z = rotationZ;
+        this.mesh.add(bar);
+      }
+      return;
+    }
+
+    if (this.kind === "split") {
+      for (const [x, rotationZ] of [[-0.18, -0.4], [0.18, 0.4]] as const) {
+        const shard = new THREE.Mesh(
+          new THREE.BoxGeometry(0.12, BLOCK_HEIGHT * 0.62, 0.02),
+          new THREE.MeshBasicMaterial({ color: 0xe8ffff })
+        );
+        shard.position.set(x, 0, zFront);
+        shard.rotation.z = rotationZ;
+        this.mesh.add(shard);
+      }
+      return;
+    }
+
+    if (this.kind === "reflect") {
+      const pane = new THREE.Mesh(
+        new THREE.PlaneGeometry(BLOCK_WIDTH * 0.72, BLOCK_HEIGHT * 0.62),
+        new THREE.MeshBasicMaterial({
+          color: 0xffffff,
+          transparent: true,
+          opacity: 0.35,
+        })
+      );
+      pane.position.set(0, 0, zFront);
+      this.mesh.add(pane);
+
+      const rim = new THREE.Mesh(
+        new THREE.RingGeometry(0.12, 0.2, 4),
+        new THREE.MeshBasicMaterial({ color: 0xc8f6ff })
+      );
+      rim.position.set(0, 0, zFront + 0.01);
+      rim.rotation.z = Math.PI / 4;
+      this.mesh.add(rim);
+    }
   }
 
   private createHpBar() {
@@ -185,6 +260,10 @@ export class Block {
       mat.color.copy(this.baseColor).offsetHSL(0, 0, pulse * 0.08);
       mat.emissive.copy(this.baseEmissive);
       mat.emissiveIntensity = this.baseEmissiveIntensity + pulse * 0.35;
+      if (this.edgeGlow) {
+        const edgeMat = this.edgeGlow.material as THREE.LineBasicMaterial;
+        edgeMat.opacity = 0.65 + pulse * 0.35;
+      }
       return;
     }
 
@@ -193,6 +272,10 @@ export class Block {
       mat.color.copy(splitColor);
       mat.emissive.copy(splitColor);
       mat.emissiveIntensity = this.baseEmissiveIntensity + pulse * 0.28;
+      if (this.edgeGlow) {
+        const edgeMat = this.edgeGlow.material as THREE.LineBasicMaterial;
+        edgeMat.opacity = 0.58 + pulse * 0.3;
+      }
       return;
     }
 
