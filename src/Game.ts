@@ -62,6 +62,10 @@ const STAR_PRAISE_DELAY_MS = 520;
 const WAVE_CLEAR_OVERLAY_DELAY_MS = 5400;
 const WORLD_CLEAR_OVERLAY_DELAY_MS = 7000;
 
+export function getRankingStorageKey(world: number) {
+  return `bokuzushi_ranking_world_${world}`;
+}
+
 export function getBallDistanceSpeedMultiplier(input: {
   distanceRatio: number;
   verticalVelocity: number;
@@ -97,6 +101,7 @@ export class Game {
   private reachStage = 0;
   private feverReadyShown = false;
   private unlockedWorld = 1;
+  private rankingWorld = 1;
   private progression: ProgressionState = createProgressionState();
 
   private paused = false;
@@ -188,6 +193,7 @@ export class Game {
     this.coarsePointer = window.matchMedia("(pointer: coarse)").matches;
 
     this.unlockedWorld = parseInt(localStorage.getItem("bokuzushi_unlocked") ?? "1", 10);
+    this.rankingWorld = this.unlockedWorld;
 
     this.pauseBtn.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -223,6 +229,8 @@ export class Game {
       btn.setAttribute("aria-label", `${theme.name} の${formatLayerLabel(1)}から始める`);
       btn.style.borderColor = theme.btnColor;
       btn.style.background = theme.btnBg;
+      btn.addEventListener("mouseenter", () => this.setRankingWorld(i));
+      btn.addEventListener("focus", () => this.setRankingWorld(i));
 
       const emojiSpan = document.createElement("span");
       emojiSpan.className = "world-btn-emoji";
@@ -268,6 +276,15 @@ export class Game {
       btn.style.opacity = unlocked ? "1" : "0.35";
       btn.disabled = !unlocked;
       btn.setAttribute("aria-disabled", unlocked ? "false" : "true");
+    }
+  }
+
+  private setRankingWorld(world: number) {
+    const clampedWorld = Math.max(1, Math.min(MAX_WORLDS, world));
+    if (this.rankingWorld === clampedWorld) return;
+    this.rankingWorld = clampedWorld;
+    if (this.state === "start") {
+      this.showRanking();
     }
   }
 
@@ -537,6 +554,7 @@ export class Game {
 
   private showStartScreen() {
     this.state = "start";
+    this.rankingWorld = Math.max(1, Math.min(this.world, this.unlockedWorld));
     this.initialServePending = false;
     this.pauseBtn.classList.add("hidden");
     this.pauseOverlay.classList.remove("show");
@@ -595,7 +613,7 @@ export class Game {
 
     const title = document.createElement("div");
     title.className = "ranking-title";
-    title.textContent = "ハイスコア";
+    title.textContent = `${WORLD_THEMES[this.rankingWorld - 1]?.name ?? "銀河"} ハイスコア`;
     el.appendChild(title);
 
     ranking.forEach((entry, index) => {
@@ -612,7 +630,7 @@ export class Game {
 
       const world = document.createElement("span");
       world.className = "ranking-world";
-      world.textContent = entry.world;
+      world.textContent = entry.date;
 
       row.appendChild(rank);
       row.appendChild(score);
@@ -1277,11 +1295,11 @@ export class Game {
       world: this.getWorldName(),
       date: new Date().toLocaleDateString("ja-JP"),
     });
-    localStorage.setItem("bokuzushi_ranking", JSON.stringify(top10));
+    localStorage.setItem(getRankingStorageKey(this.world), JSON.stringify(top10));
   }
 
   private getRanking(): RankingEntry[] {
-    const raw = localStorage.getItem("bokuzushi_ranking");
+    const raw = localStorage.getItem(getRankingStorageKey(this.rankingWorld));
     return raw ? JSON.parse(raw) : [];
   }
 

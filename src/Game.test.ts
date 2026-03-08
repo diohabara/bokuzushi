@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getBallDistanceSpeedMultiplier } from "./Game";
+import { getBallDistanceSpeedMultiplier, getRankingStorageKey } from "./Game";
 
 describe("getBallDistanceSpeedMultiplier", () => {
   it("上昇中は減衰しない", () => {
@@ -71,5 +71,13 @@ describe("getBallDistanceSpeedMultiplier", () => {
     expect(desktop).toBeCloseTo(0.72);
     expect(mobile).toBeCloseTo(0.62);
     expect(mobile).toBeLessThan(desktop);
+  });
+});
+
+describe("getRankingStorageKey", () => {
+  it("銀河ごとに別の保存キーを返す", () => {
+    expect(getRankingStorageKey(1)).toBe("bokuzushi_ranking_world_1");
+    expect(getRankingStorageKey(5)).toBe("bokuzushi_ranking_world_5");
+    expect(getRankingStorageKey(1)).not.toBe(getRankingStorageKey(2));
   });
 });

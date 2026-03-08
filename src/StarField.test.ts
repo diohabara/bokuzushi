@@ -3,6 +3,7 @@ import {
   getBlockLayoutProfile,
   getFrontRowDurabilityProfile,
   getStarPlacementProfile,
+  getWorldDurabilityTuning,
 } from "./StarField";
 import {
   BLOCK_HEIGHT,
@@ -120,5 +121,16 @@ describe("getFrontRowDurabilityProfile", () => {
     const profile = getFrontRowDurabilityProfile(32, 4, 0.9);
 
     expect(profile.tierReduction).toBe(0);
+  });
+});
+
+describe("getWorldDurabilityTuning", () => {
+  it("4章は5章より通常ブロックとガードを軽くする", () => {
+    const world4 = getWorldDurabilityTuning(3);
+    const world5 = getWorldDurabilityTuning(4);
+
+    expect(world4.ambientTierReduction).toBeGreaterThan(world5.ambientTierReduction);
+    expect(world4.guardTierOffset).toBeLessThan(world5.guardTierOffset);
+    expect(world4.guardHpScale).toBeLessThan(world5.guardHpScale);
   });
 });

@@ -275,6 +275,22 @@ export function getFrontRowDurabilityProfile(rows: number, row: number, stagePro
   };
 }
 
+export function getWorldDurabilityTuning(worldIndex: number) {
+  if (worldIndex === 3) {
+    return {
+      ambientTierReduction: 1,
+      guardTierOffset: -1,
+      guardHpScale: 0.82,
+    };
+  }
+
+  return {
+    ambientTierReduction: 0,
+    guardTierOffset: 0,
+    guardHpScale: 1,
+  };
+}
+
 export class StarField {
   blocks: Block[] = [];
   star: Star | null = null;
@@ -306,6 +322,7 @@ export class StarField {
 
     // HP: 1 base + wave bonus (later waves = tougher)
     const baseHp = 1 + waveIndex;
+    const worldDurability = getWorldDurabilityTuning(worldIndex);
 
     // Place star: start close in early stages, then push deeper as worlds and waves progress.
     const placement = getStarPlacementProfile(worldIndex, waveIndex);
@@ -374,17 +391,23 @@ export class StarField {
           const t = rows > 1 ? (rows - 1 - row) / (rows - 1) : 0;
           const baseColorIndex = Math.min(Math.floor(t * (maxTier + 1)), maxTier);
           const frontDurability = getFrontRowDurabilityProfile(rows, row, placement.stageProgress);
-          const softenedBaseColorIndex = Math.max(0, baseColorIndex - frontDurability.tierReduction);
+          const softenedBaseColorIndex = Math.max(
+            0,
+            baseColorIndex - frontDurability.tierReduction - worldDurability.ambientTierReduction
+          );
           const starDistance = Math.abs(row - starRow) + Math.abs(col - starCol);
           const inGuardZone = starDistance <= placement.guardRadius;
           const appliedBoost = inGuardZone
-            ? Math.max(0, placement.guardTierBoost - Math.max(0, starDistance - 1))
+            ? Math.max(
+              0,
+              placement.guardTierBoost + worldDurability.guardTierOffset - Math.max(0, starDistance - 1)
+            )
             : 0;
           const colorIndex = Math.min(softenedBaseColorIndex + appliedBoost, maxTier);
           const color = BLOCK_COLORS[colorIndex];
           const baseTierHp = baseHp * (1 + colorIndex);
           const guardHp = inGuardZone
-            ? Math.ceil(baseTierHp * placement.guardHpMultiplier)
+            ? Math.ceil(baseTierHp * placement.guardHpMultiplier * worldDurability.guardHpScale)
             : baseTierHp;
           const block = new Block(x, y, color, colorIndex, guardHp, row);
           this.blocks.push(block);
