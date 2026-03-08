@@ -42,41 +42,61 @@ export const FEVER_STATE_COPY = {
   active: "アガり",
 } as const;
 
-const COMBO_LABEL_SHORT = [
-  "",
-  "熱",
-  "熱い",
-  "来る",
-  "熱いぞ",
-  "来てる",
+const COMBO_COPY_NORMAL = [
+  "ざわり!!",
+  "脈アリ!!",
+  "保留育ち!!",
+  "手が熱い!!",
+  "寄り目きた!!",
+  "鳴きっぱなし!!",
+  "まだ飲める!!",
+  "気配あり!!",
+  "返しが光る!!",
+  "流れ来てる!!",
 ] as const;
 
-const COMBO_LABEL_SOURCE = {
-  minor: "ざわりが増して手が熱いまだ来るまだ伸びる",
-  hot: "当たりの気配が続いて返しが冴えてまだ止まらない",
-  major: "銀河の流れを掴んで当たり筋が伸びて盤面まで味方につく",
-  jackpot: "銀河ごと巻き込みながら当たりの川が途切れず押し寄せて理性が追いつかない",
-} as const;
+const COMBO_COPY_HOT = [
+  "右打ちの顔!!",
+  "当たりの癖!!",
+  "先バレ本番!!",
+  "銀河がざわつく!!",
+  "盤面が騒ぐ!!",
+  "止まる気配なし!!",
+  "釘が味方した!!",
+  "保留が踊ってる!!",
+] as const;
 
-export function getComboPhraseCopy(count: number): string {
-  const normalizedCount = Math.max(1, Math.min(256, Math.floor(count)));
-  const short = COMBO_LABEL_SHORT[normalizedCount];
-  if (short) return short;
+const COMBO_COPY_MAJOR = [
+  "当たりが居座る!!",
+  "引き返せん!!",
+  "脳汁巡航!!",
+  "席が立てん!!",
+  "出玉が止まらん!!",
+  "連チャンの嵐!!",
+  "台が唸ってる!!",
+  "確変突入級!!",
+] as const;
 
-  const source = normalizedCount >= 16
-    ? COMBO_LABEL_SOURCE.jackpot
-    : normalizedCount >= 10
-      ? COMBO_LABEL_SOURCE.major
-      : normalizedCount >= 6
-        ? COMBO_LABEL_SOURCE.hot
-        : COMBO_LABEL_SOURCE.minor;
-  const repeated = source.repeat(Math.ceil(normalizedCount / source.length));
-  return Array.from(repeated).slice(0, normalizedCount).join("");
+const COMBO_COPY_JACKPOT = [
+  "銀河ごと前のめり!!!",
+  "やめ時が溶けた!!!",
+  "理性の保留切れ!!!",
+  "もう閉店までこれ!!!",
+  "宇宙が味方した!!!",
+  "万発の予感!!!",
+  "伝説の台になった!!!",
+  "閉店まで打ち切る!!!",
+] as const;
+
+function pickComboCopy(count: number, bank: readonly string[], start: number): string {
+  return bank[(count - start) % bank.length] ?? bank[0];
 }
 
 export function getComboLabelCopy(count: number): string {
-  const normalizedCount = Math.max(1, Math.min(256, Math.floor(count)));
-  return `${normalizedCount}連 ${getComboPhraseCopy(normalizedCount)}`;
+  if (count >= 16) return `${count}連 ${pickComboCopy(count, COMBO_COPY_JACKPOT, 16)}`;
+  if (count >= 10) return `${count}連 ${pickComboCopy(count, COMBO_COPY_MAJOR, 10)}`;
+  if (count >= 6) return `${count}連 ${pickComboCopy(count, COMBO_COPY_HOT, 6)}`;
+  return `${count}連 ${pickComboCopy(count, COMBO_COPY_NORMAL, 1)}`;
 }
 
 export const FEVER_TRIGGER_COPY = [

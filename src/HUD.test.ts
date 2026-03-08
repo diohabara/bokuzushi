@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { getComboPhraseCopy } from "./gameContent";
 import { createStarPraiseWordPlacements, HUD } from "./HUD";
 
 describe("HUD", () => {
@@ -47,34 +46,28 @@ describe("HUD", () => {
     hud.showCombo(1);
 
     const combo = document.getElementById("combo");
-    expect(combo?.textContent).toBe("1連 熱");
-    expect(combo?.style.getPropertyValue("--combo-font-size")).toBe("clamp(20px, 2.8vw, 34px)");
+    expect(combo?.textContent).toBe("1連 ざわり!!");
+    expect(combo?.style.getPropertyValue("--combo-font-size")).toBe("clamp(28px, 6vw, 28px)");
   });
 
-  it("コンボ数に応じて文字数を増やしつつサイズは固定寄りに保つ", () => {
+  it("コンボ数に応じて文言とサイズを変える", () => {
     const hud = new HUD();
     hud.showCombo(1);
     const small = document.getElementById("combo")?.style.getPropertyValue("--combo-font-size");
 
     hud.showCombo(7);
     const large = document.getElementById("combo")?.style.getPropertyValue("--combo-font-size");
-    const phrase = document.getElementById("combo")?.textContent?.replace(/^7連 /, "");
 
-    expect(large).toBe(small);
-    expect(Array.from(phrase ?? "")).toHaveLength(7);
-    expect(large).toBe("clamp(20px, 2.8vw, 34px)");
+    expect(large).not.toBe(small);
+    expect(document.getElementById("combo")?.textContent).toBe("7連 当たりの癖!!");
+    expect(large).toBe("clamp(28px, 10.2vw, 64px)");
   });
 
-  it("256コンボまで同じ文字数ルールで生成できる", () => {
-    expect(Array.from(getComboPhraseCopy(256))).toHaveLength(256);
-  });
-
-  it("高コンボ帯でもコンボ数と同じ文字数の文言になる", () => {
+  it("高コンボ帯では専用の煽り文言に切り替える", () => {
     const hud = new HUD();
     hud.showCombo(16);
 
-    const phrase = document.getElementById("combo")?.textContent?.replace(/^16連 /, "");
-    expect(Array.from(phrase ?? "")).toHaveLength(16);
+    expect(document.getElementById("combo")?.textContent).toBe("16連 銀河ごと前のめり!!!");
   });
 
   it("星破壊演出で中央見出しと周辺文言を並べる", () => {
