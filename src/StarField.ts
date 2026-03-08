@@ -441,8 +441,8 @@ function getStrategicSpecialLayout(
   const lowerMidRow = clampRow(Math.max(starRow + 4, Math.floor(rows * 0.66)), rows);
   const frontRow = clampRow(Math.max(starRow + 6, Math.floor(rows * 0.76)), rows);
   const deepFrontRow = clampRow(Math.max(starRow + 8, Math.floor(rows * 0.84)), rows);
-  const extremeFrontRow = clampRow(rows - 4, rows);
-  const nearFrontRow = clampRow(rows - 6, rows);
+  const extremeFrontRow = clampRow(rows - 3, rows);
+  const nearFrontRow = clampRow(rows - 5, rows);
   const upperGuardRow = clampRow(Math.min(starRow - 1, Math.floor(rows * 0.36)), rows);
   const sideBias = rng() < 0.5 ? -1 : 1;
   const oppositeBias = -sideBias;

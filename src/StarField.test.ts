@@ -208,7 +208,7 @@ describe("StarField special generation", () => {
     expect(Math.max(...reflects.map((block) => block.row))).toBeLessThan(
       Math.min(...splits.map((block) => block.row))
     );
-    expect(Math.max(...splits.map((block) => block.row))).toBeGreaterThanOrEqual(theme.rows - 4);
+    expect(Math.max(...splits.map((block) => block.row))).toBeGreaterThanOrEqual(theme.rows - 3);
   });
 
   it("5章は星の真下に直線で抜けられる穴を作らない", () => {
