@@ -59,9 +59,9 @@ import {
 
 type GameState = "start" | "playing" | "gameover" | "waveclear" | "worldclear";
 type RankingEntry = { score: number; world: string; date: string };
-const STAR_PRAISE_DELAY_MS = 520;
-const WAVE_CLEAR_OVERLAY_DELAY_MS = 5400;
-const WORLD_CLEAR_OVERLAY_DELAY_MS = 7000;
+const STAR_PRAISE_DELAY_MS = 350;
+const WAVE_CLEAR_OVERLAY_DELAY_MS = 3600;
+const WORLD_CLEAR_OVERLAY_DELAY_MS = 4700;
 const MOBILE_BOTTOM_UI_SAFE_SPACE = 6.2;
 
 export function getRankingStorageKey(world: number) {
