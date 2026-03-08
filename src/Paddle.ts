@@ -44,7 +44,7 @@ export class Paddle {
 
   update() {
     // Smooth follow
-    const limit = GAME_WIDTH / 2 - this.halfWidth;
+    const limit = Math.max(0, GAME_WIDTH / 2 - this.halfWidth);
     const clamped = Math.max(-limit, Math.min(limit, this.targetX));
     this.mesh.position.x += (clamped - this.mesh.position.x) * 0.25;
   }

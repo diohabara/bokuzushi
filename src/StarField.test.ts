@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   getBlockLayoutProfile,
   getFrontRowDurabilityProfile,
-  getSpecialBlockPlan,
+  getTierEffectKind,
   getStarPlacementProfile,
   StarField,
 } from "./StarField";
@@ -138,90 +138,59 @@ describe("WORLD_THEMES", () => {
   });
 });
 
-describe("getSpecialBlockPlan", () => {
-  it("1章は特殊ブロックを出さない", () => {
-    expect(getSpecialBlockPlan(0, 0)).toEqual([]);
+describe("getTierEffectKind", () => {
+  it("2章では最弱 tier だけが返し板延長になる", () => {
+    expect(getTierEffectKind(1, 0)).toBe("extend");
+    expect(getTierEffectKind(1, 1)).toBe("normal");
   });
 
-  it("2章で増殖を解禁する", () => {
-    expect(getSpecialBlockPlan(1, 2)).toEqual([
-      { kind: "split", count: 10 },
-    ]);
+  it("3章では次 tier に増殖が乗る", () => {
+    expect(getTierEffectKind(2, 0)).toBe("extend");
+    expect(getTierEffectKind(2, 1)).toBe("split");
+    expect(getTierEffectKind(2, 2)).toBe("normal");
   });
 
-  it("3章で2章要素を引き継ぎつつ返し板延長を解禁する", () => {
-    expect(getSpecialBlockPlan(2, 1)).toEqual([
-      { kind: "split", count: 4 },
-      { kind: "extend", count: 10 },
-    ]);
+  it("4章ではさらに超耐久が乗る", () => {
+    expect(getTierEffectKind(3, 2)).toBe("indestructible");
   });
 
-  it("4章で3章までの要素を引き継ぎつつ超耐久配置を主役にする", () => {
-    expect(getSpecialBlockPlan(3, 2)).toEqual([
-      { kind: "split", count: 5 },
-      { kind: "extend", count: 12 },
-    ]);
-  });
-
-  it("5章で4章までの要素を引き継ぎつつ反射を追加する", () => {
-    expect(getSpecialBlockPlan(4, 2)).toEqual([
-      { kind: "split", count: 6 },
-      { kind: "extend", count: 10 },
-      { kind: "reflect", count: 10 },
-    ]);
+  it("5章ではさらに反射が乗る", () => {
+    expect(getTierEffectKind(4, 3)).toBe("reflect");
   });
 });
 
 describe("StarField special generation", () => {
-  it("2章は増殖ブロックが前寄りに複数見える", () => {
+  it("2章は緑 tier が返し板延長ブロックになる", () => {
     const starField = new StarField(new THREE.Scene());
     starField.generate(0, 1, { coarsePointer: false, paddleTop: PADDLE_Y + PADDLE_HEIGHT / 2 });
 
-    const splits = starField.blocks.filter((block) => block.kind === "split");
-    expect(splits.length).toBeGreaterThanOrEqual(6);
-    expect(
-      splits.reduce((sum, block) => sum + block.row, 0) / splits.length
-    ).toBeGreaterThan(12);
+    const extendsBlocks = starField.blocks.filter((block) => block.kind === "extend");
+    expect(extendsBlocks.length).toBeGreaterThanOrEqual(10);
+    expect(starField.blocks.some((block) => block.kind === "split")).toBe(false);
   });
 
-  it("3章は増殖を引き継ぎつつ返し板延長ブロックが前方に出る", () => {
+  it("3章は返し板延長と増殖が両方出る", () => {
     const starField = new StarField(new THREE.Scene());
     starField.generate(2, 2, { coarsePointer: false, paddleTop: PADDLE_Y + PADDLE_HEIGHT / 2 });
 
     const splits = starField.blocks.filter((block) => block.kind === "split");
     const extendsBlocks = starField.blocks.filter((block) => block.kind === "extend");
-    expect(splits.length).toBeGreaterThanOrEqual(4);
-    expect(extendsBlocks.length).toBeGreaterThanOrEqual(14);
-    expect(Math.max(...extendsBlocks.map((block) => block.row))).toBeGreaterThanOrEqual(21);
+    expect(splits.length).toBeGreaterThanOrEqual(10);
+    expect(extendsBlocks.length).toBeGreaterThanOrEqual(10);
   });
 
-  it("4章は増殖と延長を引き継ぎつつ超耐久ブロックが前線と星周りを厚く守る", () => {
-    const paddleTop = PADDLE_Y + PADDLE_HEIGHT / 2;
+  it("4章は超耐久付き tier が混ざる", () => {
     const starField = new StarField(new THREE.Scene());
-    starField.generate(2, 3, { coarsePointer: false, paddleTop });
-    const theme = WORLD_THEMES[3]!;
-    const layout = getBlockLayoutProfile(theme.rows, false, paddleTop);
-    const startX = -((theme.cols - 1) * BLOCK_SPACING_X) / 2;
-    const star = starField.star!;
-    const starCol = Math.round((star.mesh.position.x - startX) / BLOCK_SPACING_X);
-    const starRow = Math.round((layout.startY - star.mesh.position.y) / layout.spacingY);
-
+    starField.generate(2, 3, { coarsePointer: false, paddleTop: PADDLE_Y + PADDLE_HEIGHT / 2 });
     const indestructibles = starField.blocks.filter((block) => block.kind === "indestructible");
     const splits = starField.blocks.filter((block) => block.kind === "split");
     const extendsBlocks = starField.blocks.filter((block) => block.kind === "extend");
-    const guarded = indestructibles.filter((block) =>
-      block.row >= starRow - 1
-      && block.row <= starRow + 2
-      && Math.abs(block.col - starCol) >= 1
-      && Math.abs(block.col - starCol) <= 4
-    );
     expect(indestructibles.length).toBeGreaterThanOrEqual(35);
     expect(splits.length).toBeGreaterThanOrEqual(5);
-    expect(extendsBlocks.length).toBeGreaterThanOrEqual(12);
-    expect(guarded.length).toBeGreaterThanOrEqual(6);
+    expect(extendsBlocks.length).toBeGreaterThanOrEqual(8);
   });
 
-  it("5章は過去要素を引き継ぎつつ反射ブロックが目立つ数だけ出る", () => {
+  it("5章は反射まで含めて弱 tier 効果が全部乗る", () => {
     const starField = new StarField(new THREE.Scene());
     starField.generate(2, 4, { coarsePointer: false, paddleTop: PADDLE_Y + PADDLE_HEIGHT / 2 });
 
@@ -229,9 +198,8 @@ describe("StarField special generation", () => {
     const splits = starField.blocks.filter((block) => block.kind === "split");
     const extendsBlocks = starField.blocks.filter((block) => block.kind === "extend");
     expect(reflects.length).toBeGreaterThanOrEqual(10);
-    expect(splits.length).toBeGreaterThanOrEqual(6);
-    expect(extendsBlocks.length).toBeGreaterThanOrEqual(10);
-    expect(Math.min(...reflects.map((block) => block.row))).toBeLessThanOrEqual(9);
+    expect(splits.length).toBeGreaterThanOrEqual(3);
+    expect(extendsBlocks.length).toBeGreaterThanOrEqual(20);
   });
 
   it("5章は星の真下に直線で抜けられる穴を作らない", () => {

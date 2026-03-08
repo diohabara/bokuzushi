@@ -67,7 +67,6 @@ const SPLIT_BALL_ANGLE_OFFSET = 0.32;
 const INTERNAL_BALL_SAFETY_LIMIT = 12;
 const REFLECT_BLOCK_DAMAGE = 1;
 const DEBUG_UNLOCK_STORAGE_KEY = "bokuzushi_debug_unlock_all";
-const PADDLE_EXTEND_BASE_MULTIPLIER = 1.5;
 
 function parseUnlockedWorld(rawValue: string | null | undefined) {
   const parsed = Number.parseInt(rawValue ?? "1", 10);
@@ -89,7 +88,7 @@ export function isDebugUnlockAllEnabled(input: {
 }
 
 export function getExtendedPaddleMultiplier(currentMultiplier: number) {
-  return Math.max(currentMultiplier, PADDLE_EXTEND_BASE_MULTIPLIER);
+  return currentMultiplier * 1.5;
 }
 
 export function getRankingStorageKey(world: number) {

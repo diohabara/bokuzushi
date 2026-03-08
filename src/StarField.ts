@@ -352,6 +352,11 @@ function getSpecialBlockStats(
   baseHp: number
 ) {
   switch (kind) {
+    case "indestructible":
+      return {
+        colorIndex: INDESTRUCTIBLE_COLOR_INDEX,
+        hp: Math.max(12, Math.ceil(baseHp * 4)),
+      };
     case "extend":
       return {
         colorIndex: Math.max(0, Math.min(maxTier, baseColorIndex - 1)),
@@ -373,6 +378,14 @@ function getSpecialBlockStats(
         hp: baseHp,
       };
   }
+}
+
+export function getTierEffectKind(worldIndex: number, colorIndex: number): BlockKind {
+  if (worldIndex >= 4 && colorIndex === 3) return "reflect";
+  if (worldIndex >= 3 && colorIndex === 2) return "indestructible";
+  if (worldIndex >= 2 && colorIndex === 1) return "split";
+  if (worldIndex >= 1 && colorIndex === 0) return "extend";
+  return "normal";
 }
 
 function clampRow(row: number, rows: number, maxRow = rows - 3) {
@@ -815,7 +828,7 @@ export class StarField {
           const guardHp = inGuardZone
             ? Math.ceil(baseTierHp * placement.guardHpMultiplier)
             : baseTierHp;
-          const specialKind = specialKindsByCell.get(`${row}:${col}`) ?? "normal";
+          const specialKind = getTierEffectKind(worldIndex, softenedBaseColorIndex);
           const specialStats = getSpecialBlockStats(
             specialKind,
             boostedColorIndex,
@@ -824,6 +837,8 @@ export class StarField {
           );
           const color = specialKind === "normal"
             ? BLOCK_COLORS[specialStats.colorIndex]
+            : specialKind === "indestructible"
+              ? INDESTRUCTIBLE_COLOR
             : specialKind === "extend"
               ? 0xffc14f
               : specialKind === "split"
