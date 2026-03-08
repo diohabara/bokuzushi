@@ -1,9 +1,11 @@
+import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import {
   getBlockLayoutProfile,
   getFrontRowDurabilityProfile,
   getSpecialBlockPlan,
   getStarPlacementProfile,
+  StarField,
 } from "./StarField";
 import {
   BLOCK_HEIGHT,
@@ -143,22 +145,50 @@ describe("getSpecialBlockPlan", () => {
 
   it("3章で爆弾を解禁する", () => {
     expect(getSpecialBlockPlan(2, 1)).toEqual([
-      { kind: "bomb", count: 2 },
+      { kind: "bomb", count: 4 },
     ]);
   });
 
   it("4章で爆弾と増殖を累積解禁する", () => {
     expect(getSpecialBlockPlan(3, 2)).toEqual([
-      { kind: "bomb", count: 3 },
-      { kind: "split", count: 2 },
+      { kind: "bomb", count: 5 },
+      { kind: "split", count: 4 },
     ]);
   });
 
   it("5章で反射を追加しつつ以前の特殊も残す", () => {
     expect(getSpecialBlockPlan(4, 2)).toEqual([
-      { kind: "bomb", count: 2 },
-      { kind: "split", count: 1 },
-      { kind: "reflect", count: 2 },
+      { kind: "bomb", count: 4 },
+      { kind: "split", count: 3 },
+      { kind: "reflect", count: 6 },
     ]);
+  });
+});
+
+describe("StarField special generation", () => {
+  it("3章は爆弾ブロックがはっきり見える数だけ出る", () => {
+    const starField = new StarField(new THREE.Scene());
+    starField.generate(0, 2, { coarsePointer: false, paddleTop: PADDLE_Y + PADDLE_HEIGHT / 2 });
+
+    const bombs = starField.blocks.filter((block) => block.kind === "bomb");
+    expect(bombs.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("4章は爆弾と増殖が両方とも複数見える", () => {
+    const starField = new StarField(new THREE.Scene());
+    starField.generate(2, 3, { coarsePointer: false, paddleTop: PADDLE_Y + PADDLE_HEIGHT / 2 });
+
+    const bombs = starField.blocks.filter((block) => block.kind === "bomb");
+    const splits = starField.blocks.filter((block) => block.kind === "split");
+    expect(bombs.length).toBeGreaterThanOrEqual(5);
+    expect(splits.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("5章は反射ブロックが目立つ数だけ出る", () => {
+    const starField = new StarField(new THREE.Scene());
+    starField.generate(2, 4, { coarsePointer: false, paddleTop: PADDLE_Y + PADDLE_HEIGHT / 2 });
+
+    const reflects = starField.blocks.filter((block) => block.kind === "reflect");
+    expect(reflects.length).toBeGreaterThanOrEqual(6);
   });
 });

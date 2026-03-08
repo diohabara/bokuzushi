@@ -26,6 +26,13 @@ type SpecialBlockSpawn = {
   kind: BlockKind;
   count: number;
 };
+type CellPosition = {
+  row: number;
+  col: number;
+};
+type SpecialPlacement = CellPosition & {
+  kind: BlockKind;
+};
 
 const LATE_WORLD_ROW_THRESHOLD = 28;
 const DEEP_WORLD_ROW_THRESHOLD = 32;
@@ -286,18 +293,18 @@ export function getSpecialBlockPlan(worldIndex: number, waveIndex: number): Spec
       return [];
     case 2:
       return [
-        { kind: "bomb", count: waveIndex >= 2 ? 3 : 2 },
+        { kind: "bomb", count: waveIndex >= 2 ? 6 : 4 },
       ];
     case 3:
       return [
-        { kind: "bomb", count: waveIndex >= 2 ? 3 : 2 },
-        { kind: "split", count: waveIndex >= 2 ? 2 : 1 },
+        { kind: "bomb", count: waveIndex >= 2 ? 5 : 4 },
+        { kind: "split", count: waveIndex >= 2 ? 4 : 2 },
       ];
     default:
       return [
-        { kind: "bomb", count: waveIndex >= 2 ? 2 : 1 },
-        { kind: "split", count: 1 },
-        { kind: "reflect", count: waveIndex >= 2 ? 2 : 1 },
+        { kind: "bomb", count: waveIndex >= 2 ? 4 : 3 },
+        { kind: "split", count: waveIndex >= 2 ? 3 : 2 },
+        { kind: "reflect", count: waveIndex >= 2 ? 6 : 4 },
       ];
   }
 }
@@ -337,6 +344,70 @@ function getSpecialBlockStats(
         colorIndex: baseColorIndex,
         hp: baseHp,
       };
+  }
+}
+
+function clampRow(row: number, rows: number) {
+  return Math.max(2, Math.min(rows - 3, row));
+}
+
+function clampCol(col: number, cols: number) {
+  return Math.max(1, Math.min(cols - 2, col));
+}
+
+function getSpecialShowcasePlacements(
+  worldIndex: number,
+  waveIndex: number,
+  rows: number,
+  cols: number,
+  starRow: number,
+  starCol: number,
+  pathHalfWidth: number
+): SpecialPlacement[] {
+  const shoulderNear = pathHalfWidth + 2;
+  const shoulderFar = pathHalfWidth + 3;
+  const frontRow = clampRow(Math.max(starRow + 3, Math.floor(rows * 0.56)), rows);
+  const deepRow = clampRow(Math.max(starRow + 6, Math.floor(rows * 0.72)), rows);
+  const lowRow = clampRow(Math.max(starRow + 8, Math.floor(rows * 0.82)), rows);
+  const midRow = clampRow(Math.floor(rows * 0.46), rows);
+
+  switch (worldIndex) {
+    case 2:
+      return [
+        { kind: "bomb", row: frontRow, col: clampCol(starCol - shoulderNear, cols) },
+        { kind: "bomb", row: frontRow, col: clampCol(starCol + shoulderNear, cols) },
+        { kind: "bomb", row: deepRow, col: clampCol(starCol - shoulderFar, cols) },
+        { kind: "bomb", row: deepRow, col: clampCol(starCol + shoulderFar, cols) },
+        { kind: "bomb", row: clampRow(deepRow - 2, rows), col: clampCol(starCol - shoulderNear, cols) },
+        { kind: "bomb", row: clampRow(deepRow - 2, rows), col: clampCol(starCol + shoulderNear, cols) },
+      ];
+    case 3:
+      return [
+        { kind: "bomb", row: midRow, col: clampCol(starCol - shoulderFar, cols) },
+        { kind: "bomb", row: midRow, col: clampCol(starCol + shoulderFar, cols) },
+        { kind: "bomb", row: frontRow, col: clampCol(starCol - shoulderNear, cols) },
+        { kind: "bomb", row: frontRow, col: clampCol(starCol + shoulderNear, cols) },
+        { kind: "bomb", row: deepRow, col: clampCol(starCol + shoulderFar, cols) },
+        { kind: "split", row: clampRow(frontRow + 1, rows), col: clampCol(starCol - shoulderNear, cols) },
+        { kind: "split", row: clampRow(frontRow + 1, rows), col: clampCol(starCol + shoulderNear, cols) },
+        { kind: "split", row: lowRow, col: clampCol(starCol - shoulderFar, cols) },
+        { kind: "split", row: lowRow, col: clampCol(starCol + shoulderFar, cols) },
+      ];
+    default:
+      return [
+        { kind: "reflect", row: midRow, col: clampCol(starCol - (pathHalfWidth + 1), cols) },
+        { kind: "reflect", row: midRow, col: clampCol(starCol + (pathHalfWidth + 1), cols) },
+        { kind: "reflect", row: frontRow, col: clampCol(starCol - (pathHalfWidth + 1), cols) },
+        { kind: "reflect", row: frontRow, col: clampCol(starCol + (pathHalfWidth + 1), cols) },
+        { kind: "reflect", row: deepRow, col: clampCol(starCol - shoulderNear, cols) },
+        { kind: "reflect", row: deepRow, col: clampCol(starCol + shoulderNear, cols) },
+        { kind: "bomb", row: clampRow(frontRow + 1, rows), col: clampCol(starCol - shoulderFar, cols) },
+        { kind: "bomb", row: clampRow(frontRow + 1, rows), col: clampCol(starCol + shoulderFar, cols) },
+        { kind: "bomb", row: lowRow, col: clampCol(starCol + shoulderFar, cols) },
+        { kind: "split", row: clampRow(deepRow + 1, rows), col: clampCol(starCol - shoulderNear, cols) },
+        { kind: "split", row: clampRow(deepRow + 1, rows), col: clampCol(starCol + shoulderNear, cols) },
+        { kind: "split", row: lowRow, col: clampCol(starCol - shoulderFar, cols) },
+      ];
   }
 }
 
@@ -409,28 +480,56 @@ export class StarField {
       }
     }
 
-    const specialKindsByCell = new Map<string, BlockKind>();
-    const eligibleSpecialCells = shuffleInPlace(
-      Array.from({ length: rows }, (_, row) => row).flatMap((row) =>
-        Array.from({ length: cols }, (_, col) => ({ row, col }))
-      )
-    ).filter(({ row, col }) => {
+    const isEligibleSpecialCell = ({ row, col }: CellPosition) => {
       if (!grid[row]?.[col]) return false;
       if (indestructibleMask[row]?.[col]) return false;
       if (row === starRow && col === starCol) return false;
       if (row >= rows - 2) return false;
       if (row > starRow && Math.abs(col - starCol) <= placement.pathHalfWidth) return false;
       return true;
-    });
+    };
+
+    const specialKindsByCell = new Map<string, BlockKind>();
+    const specialPlan = getSpecialBlockPlan(worldIndex, waveIndex);
+    const remainingByKind = new Map<BlockKind, number>(
+      specialPlan.map((spawn) => [spawn.kind, spawn.count])
+    );
+    const showcasePlacements = getSpecialShowcasePlacements(
+      worldIndex,
+      waveIndex,
+      rows,
+      cols,
+      starRow,
+      starCol,
+      placement.pathHalfWidth
+    );
+    for (const placementCell of showcasePlacements) {
+      const remaining = remainingByKind.get(placementCell.kind) ?? 0;
+      if (remaining <= 0) continue;
+      if (!isEligibleSpecialCell(placementCell)) continue;
+      const key = `${placementCell.row}:${placementCell.col}`;
+      if (specialKindsByCell.has(key)) continue;
+      specialKindsByCell.set(key, placementCell.kind);
+      remainingByKind.set(placementCell.kind, remaining - 1);
+    }
+
+    const eligibleSpecialCells = shuffleInPlace(
+      Array.from({ length: rows }, (_, row) => row).flatMap((row) =>
+        Array.from({ length: cols }, (_, col) => ({ row, col }))
+      )
+    ).filter((cell) => isEligibleSpecialCell(cell) && !specialKindsByCell.has(`${cell.row}:${cell.col}`));
 
     let specialCursor = 0;
-    for (const spawn of getSpecialBlockPlan(worldIndex, waveIndex)) {
-      for (let index = 0; index < spawn.count; index++) {
+    for (const spawn of specialPlan) {
+      let remaining = remainingByKind.get(spawn.kind) ?? 0;
+      while (remaining > 0) {
         const cell = eligibleSpecialCells[specialCursor];
         if (!cell) break;
         specialKindsByCell.set(`${cell.row}:${cell.col}`, spawn.kind);
         specialCursor += 1;
+        remaining -= 1;
       }
+      remainingByKind.set(spawn.kind, remaining);
     }
 
     for (let row = 0; row < rows; row++) {
