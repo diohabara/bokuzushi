@@ -388,6 +388,44 @@ export function getTierEffectKind(worldIndex: number, colorIndex: number): Block
   return "normal";
 }
 
+function normalizedSeed(...parts: number[]) {
+  return mixSeed(...parts) / 0xffffffff;
+}
+
+function rebalanceWeakColorTier(
+  worldIndex: number,
+  waveIndex: number,
+  row: number,
+  col: number,
+  colorIndex: number,
+  maxTier: number
+) {
+  let adjusted = colorIndex;
+
+  if (worldIndex >= 1 && adjusted === 0) {
+    const promoteWeakest = normalizedSeed(worldIndex + 1, waveIndex + 1, row + 1, col + 1, 11);
+    if (promoteWeakest < 0.68) {
+      adjusted = Math.min(1, maxTier);
+    }
+  }
+
+  if (worldIndex >= 2 && adjusted === 1) {
+    const promoteSecond = normalizedSeed(worldIndex + 1, waveIndex + 1, row + 1, col + 1, 23);
+    if (promoteSecond < 0.42) {
+      adjusted = Math.min(2, maxTier);
+    }
+  }
+
+  if (worldIndex >= 3 && adjusted === 2) {
+    const promoteThird = normalizedSeed(worldIndex + 1, waveIndex + 1, row + 1, col + 1, 37);
+    if (promoteThird < 0.2) {
+      adjusted = Math.min(3, maxTier);
+    }
+  }
+
+  return adjusted;
+}
+
 function clampRow(row: number, rows: number, maxRow = rows - 3) {
   return Math.max(2, Math.min(maxRow, row));
 }
@@ -818,17 +856,25 @@ export class StarField {
           const baseColorIndex = Math.min(Math.floor(t * (maxTier + 1)), maxTier);
           const frontDurability = getFrontRowDurabilityProfile(rows, row, placement.stageProgress);
           const softenedBaseColorIndex = Math.max(0, baseColorIndex - frontDurability.tierReduction);
+          const adjustedBaseColorIndex = rebalanceWeakColorTier(
+            worldIndex,
+            waveIndex,
+            row,
+            col,
+            softenedBaseColorIndex,
+            maxTier
+          );
           const starDistance = Math.abs(row - starRow) + Math.abs(col - starCol);
           const inGuardZone = starDistance <= placement.guardRadius;
           const appliedBoost = inGuardZone
             ? Math.max(0, placement.guardTierBoost - Math.max(0, starDistance - 1))
             : 0;
-          const boostedColorIndex = Math.min(softenedBaseColorIndex + appliedBoost, maxTier);
+          const boostedColorIndex = Math.min(adjustedBaseColorIndex + appliedBoost, maxTier);
           const baseTierHp = baseHp * (1 + boostedColorIndex);
           const guardHp = inGuardZone
             ? Math.ceil(baseTierHp * placement.guardHpMultiplier)
             : baseTierHp;
-          const specialKind = getTierEffectKind(worldIndex, softenedBaseColorIndex);
+          const specialKind = getTierEffectKind(worldIndex, adjustedBaseColorIndex);
           const specialStats = getSpecialBlockStats(
             specialKind,
             boostedColorIndex,

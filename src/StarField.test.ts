@@ -176,7 +176,7 @@ describe("StarField special generation", () => {
     const splits = starField.blocks.filter((block) => block.kind === "split");
     const extendsBlocks = starField.blocks.filter((block) => block.kind === "extend");
     expect(splits.length).toBeGreaterThanOrEqual(10);
-    expect(extendsBlocks.length).toBeGreaterThanOrEqual(10);
+    expect(extendsBlocks.length).toBeGreaterThanOrEqual(7);
   });
 
   it("4章は超耐久付き tier が混ざる", () => {
@@ -199,7 +199,7 @@ describe("StarField special generation", () => {
     const extendsBlocks = starField.blocks.filter((block) => block.kind === "extend");
     expect(reflects.length).toBeGreaterThanOrEqual(10);
     expect(splits.length).toBeGreaterThanOrEqual(3);
-    expect(extendsBlocks.length).toBeGreaterThanOrEqual(20);
+    expect(extendsBlocks.length).toBeGreaterThanOrEqual(12);
   });
 
   it("5章は星の真下に直線で抜けられる穴を作らない", () => {
