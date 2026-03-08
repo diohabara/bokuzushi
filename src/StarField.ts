@@ -309,8 +309,8 @@ export function getSpecialBlockPlan(worldIndex: number, waveIndex: number): Spec
     default:
       return [
         { kind: "bomb", count: waveIndex >= 2 ? 4 : 3 },
-        { kind: "split", count: waveIndex >= 2 ? 3 : 2 },
-        { kind: "reflect", count: waveIndex >= 2 ? 6 : 4 },
+        { kind: "split", count: waveIndex >= 2 ? 6 : 4 },
+        { kind: "reflect", count: waveIndex >= 2 ? 10 : 8 },
       ];
   }
 }
@@ -478,13 +478,23 @@ function getStrategicSpecialLayout(
       }
       break;
     default:
-      for (const [row, offset] of [
-        [upperGuardRow, pathHalfWidth + 1],
-        [starRow, shoulderNear],
-        [clampRow(starRow + 2, rows), pathHalfWidth + 1],
+      for (const [row, leftOffset, rightOffset] of [
+        [upperGuardRow, shoulderNear, pathHalfWidth + 1],
+        [starRow, pathHalfWidth + 1, shoulderNear],
+        [clampRow(starRow + 1, rows), shoulderNear, pathHalfWidth + 1],
+        [clampRow(starRow + 3, rows), pathHalfWidth + 1, shoulderNear],
       ] as const) {
-        pushPlacement("reflect", row, starCol - offset, 0, 0);
-        pushPlacement("reflect", row, starCol + offset, 0, 0);
+        pushPlacement("reflect", row, starCol - leftOffset, 0, 0);
+        pushPlacement("reflect", row, starCol + rightOffset, 0, 0);
+      }
+      if (waveIndex >= 2) {
+        for (const [row, leftOffset, rightOffset] of [
+          [clampRow(starRow + 4, rows), shoulderNear, pathHalfWidth + 1],
+          [clampRow(starRow + 5, rows), pathHalfWidth + 1, shoulderNear],
+        ] as const) {
+          pushPlacement("reflect", row, starCol - leftOffset, 0, 0);
+          pushPlacement("reflect", row, starCol + rightOffset, 0, 0);
+        }
       }
 
       pushPlacement("bomb", lowerMidRow, starCol - shoulderWider);
@@ -496,24 +506,33 @@ function getStrategicSpecialLayout(
 
       const splitPocketMain = clampCell(frontRow, starCol + sideBias * shoulderWider, rows, cols);
       const splitPocketAlt = clampCell(deepFrontRow, starCol + oppositeBias * shoulderFar, rows, cols);
+      const splitPocketThird = clampCell(clampRow(frontRow - 1, rows), starCol + sideBias * shoulderNear, rows, cols);
+      const splitPocketFourth = clampCell(clampRow(deepFrontRow - 1, rows), starCol + oppositeBias * shoulderNear, rows, cols);
       pushPlacement("split", splitPocketMain.row, splitPocketMain.col, 1, 0);
       pushPlacement("split", splitPocketAlt.row, splitPocketAlt.col, 1, 0);
+      pushPlacement("split", splitPocketThird.row, splitPocketThird.col, 1, 0);
+      pushPlacement("split", splitPocketFourth.row, splitPocketFourth.col, 1, 0);
       if (waveIndex >= 2) {
-        const splitPocketThird = clampCell(frontRow - 1, starCol + sideBias * shoulderNear, rows, cols);
-        pushPlacement("split", splitPocketThird.row, splitPocketThird.col, 1, 0);
+        const splitPocketFifth = clampCell(clampRow(frontRow - 2, rows), starCol + sideBias * shoulderWider, rows, cols);
+        const splitPocketSixth = clampCell(clampRow(deepFrontRow, rows), starCol + oppositeBias * shoulderWider, rows, cols);
+        pushPlacement("split", splitPocketFifth.row, splitPocketFifth.col, 1, 0);
+        pushPlacement("split", splitPocketSixth.row, splitPocketSixth.col, 1, 0);
       }
 
-      for (const pocket of [splitPocketMain, splitPocketAlt]) {
+      for (const pocket of [splitPocketMain, splitPocketAlt, splitPocketThird, splitPocketFourth]) {
         pushSupport(pocket.row - 1, pocket.col);
         pushSupport(pocket.row, pocket.col - 1);
         pushSupport(pocket.row, pocket.col + 1);
         pushSupport(pocket.row - 1, pocket.col + sideBias);
+        pushSupport(pocket.row + 1, pocket.col - sideBias);
       }
       for (const guard of [
-        clampCell(starRow - 1, starCol - shoulderNear, rows, cols),
-        clampCell(starRow - 1, starCol + shoulderNear, rows, cols),
+        clampCell(starRow - 1, starCol - (pathHalfWidth + 1), rows, cols),
+        clampCell(starRow - 1, starCol + (pathHalfWidth + 1), rows, cols),
         clampCell(starRow + 1, starCol - shoulderNear, rows, cols),
         clampCell(starRow + 1, starCol + shoulderNear, rows, cols),
+        clampCell(starRow + 2, starCol - (pathHalfWidth + 1), rows, cols),
+        clampCell(starRow + 2, starCol + (pathHalfWidth + 1), rows, cols),
       ]) {
         pushSupport(guard.row, guard.col);
       }

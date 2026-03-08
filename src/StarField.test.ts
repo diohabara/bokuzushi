@@ -159,8 +159,8 @@ describe("getSpecialBlockPlan", () => {
   it("5章で反射を追加しつつ以前の特殊も残す", () => {
     expect(getSpecialBlockPlan(4, 2)).toEqual([
       { kind: "bomb", count: 4 },
-      { kind: "split", count: 3 },
-      { kind: "reflect", count: 6 },
+      { kind: "split", count: 6 },
+      { kind: "reflect", count: 10 },
     ]);
   });
 });
@@ -196,11 +196,15 @@ describe("StarField special generation", () => {
 
     const reflects = starField.blocks.filter((block) => block.kind === "reflect");
     const splits = starField.blocks.filter((block) => block.kind === "split");
-    expect(reflects.length).toBeGreaterThanOrEqual(6);
+    expect(reflects.length).toBeGreaterThanOrEqual(10);
+    expect(splits.length).toBeGreaterThanOrEqual(6);
     expect(
       reflects.reduce((sum, block) => sum + block.row, 0) / reflects.length
     ).toBeLessThan(
       splits.reduce((sum, block) => sum + block.row, 0) / splits.length
+    );
+    expect(Math.max(...reflects.map((block) => block.row))).toBeLessThan(
+      Math.min(...splits.map((block) => block.row))
     );
   });
 
