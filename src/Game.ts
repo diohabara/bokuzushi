@@ -428,11 +428,6 @@ export class Game {
     this.initialServePending = false;
   }
 
-  private autoLaunchServeForTouch() {
-    if (!this.coarsePointer) return;
-    this.launchBallIfReady();
-  }
-
   private handleOverlayAction() {
     this.overlayActionHandler?.();
   }
@@ -767,7 +762,6 @@ export class Game {
     this.hideOverlay();
     this.updateHUD();
     this.pauseBtn.classList.remove("hidden");
-    this.autoLaunchServeForTouch();
   }
 
   private nextWave() {
@@ -788,7 +782,6 @@ export class Game {
     this.hideOverlay();
     this.pauseBtn.classList.remove("hidden");
     this.updateHUD();
-    this.autoLaunchServeForTouch();
   }
 
   private nextWorld() {
@@ -819,7 +812,6 @@ export class Game {
     this.hideOverlay();
     this.pauseBtn.classList.remove("hidden");
     this.updateHUD();
-    this.autoLaunchServeForTouch();
   }
 
   private shake(intensity = SHAKE_INTENSITY, duration = SHAKE_DURATION) {
